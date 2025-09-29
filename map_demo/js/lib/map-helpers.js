@@ -1,3 +1,22 @@
+const loaderEl = document.getElementById('loader');
+try {
+  if (loaderEl) loaderEl.classList.add('active');
+
+
+/**
+ * Dodaje/aktualizuje linię z GeoJSON na mapie.
+ * @param {mapboxgl.Map} map - instancja mapy Mapbox GL
+ * @param {{
+ *   id: string,
+ *   url?: string,
+ *   paint?: mapboxgl.LinePaint,
+ *   beforeId?: string,
+ *   fitToData?: boolean,
+ *   padding?: number
+ * }} opts
+ * @returns {Promise<void>}
+ */
+
 // map_demo/js/lib/map-helpers.js
 window.mapHelpers = window.mapHelpers || {};
 
@@ -38,3 +57,9 @@ window.mapHelpers.addGeoJsonLine = async function addGeoJsonLine(map, {
     // alert można wyłączyć, żeby nie wyskakiwało okno przy 404 itp.
   }
 };
+
+} catch (err) {
+  console.error('[addGeoJsonLine] failed:', err);
+} finally {
+  if (loaderEl) loaderEl.classList.remove('active');
+}
