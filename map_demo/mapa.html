@@ -374,7 +374,6 @@ function mainLineCoords(geom){
 
   // Render all hiking lines (kontekst)
   map.addSource('hiking', { type:'geojson', data: hikingData, lineMetrics:true });
-
   map.addLayer({
     id:'hiking-casing', type:'line', source:'hiking',
     paint:{ 'line-color':'#fff', 'line-width':['interpolate',['linear'],['zoom'],10,2,14,6], 'line-opacity':0.35 },
@@ -396,28 +395,7 @@ function mainLineCoords(geom){
       'line-opacity':0.95
     },
     layout:{ 'line-cap':'round','line-join':'round' }
-    
-    
   });
-   const fileData = await fetch('./converted_map.geojson').then(r => r.json());
-
-  if (!map.getSource('route-file')) {
-    map.addSource('route-file', { type: 'geojson', data: fileData, lineMetrics: true });
-  } else {
-    map.getSource('route-file').setData(fileData);
-  }
-
-  if (!map.getLayer('route-file-line')) {
-    map.addLayer({
-      id: 'route-file-line',
-      type: 'line',
-      source: 'route-file',
-      paint: { 'line-color': '#00FFFF', 'line-width': 4 }
-    });
-  }
-
-  const bboxFile = turf.bbox(fileData);
-  map.fitBounds(bboxFile, { padding: 60, duration: 0 });
 
 
   // Sidebar list
