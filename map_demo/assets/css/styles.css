@@ -88,7 +88,7 @@
     #fabMenu{
       position:absolute; right:16px; bottom:22px; z-index: 10;
       width:56px; height:56px; border-radius:50%;
-      background:rgba(0,0,0,.6); color:#b43f3f; border:1px solid rgba(255,255,255,.25);
+      background:rgba(0,0,0,.6); color:#fff; border:1px solid rgba(255,255,255,.25);
       display:flex; align-items:center; justify-content:center;
       box-shadow:0 6px 16px rgba(0,0,0,.35); cursor:pointer;
       backdrop-filter: blur(6px);
@@ -401,3 +401,18 @@
   }
   #timeline{ flex-basis: 100%; order: 2; } /* suwak w drugim rzędzie, pełna szerokość */
 }
+
+/* Mapa na pełną wysokość okna */
+#map { 
+  min-height: 100dvh !important;   /* było 80vh */
+  height: 100dvh !important;
+}
+
+/* Strona bez tła i zbędnych marginesów */
+html, body { height: 100%; margin: 0; background: transparent; }
+
+/* Kontener ma minimum wysokości okna, by nic nie „wystawało” poniżej mapy */
+#app { min-height: 100dvh; }
+
+/* (opcjonalnie) brak horyzontalnego scrolla od cieni/zaokrągleń */
+body { overflow-x: hidden; }
