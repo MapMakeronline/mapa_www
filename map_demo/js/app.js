@@ -14,7 +14,10 @@ const hikingData = {"type": "FeatureCollection", "features": [{"type": "Feature"
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/standard-satellite',
-  center: [16.289, 50.77], zoom: 12, pitch: 55, bearing: 10
+  center: window.UI?.START_CENTER || [16.29, 50.77],
+  zoom: window.UI?.START_ZOOM ?? 12,
+  pitch: window.UI?.START_PITCH ?? 55,
+  bearing: window.UI?.START_BEARING ?? 10
 });
 map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}), 'top-right');
 
@@ -117,14 +120,15 @@ async function addGeoJsonLine(map, {
     layout:{ 'line-cap':'round','line-join':'round' }
   });
   
-  await addGeoJsonLine(map, {
-      id: 'route-file',
-      url: window.CONFIG?.GEOJSON_URL || './converted_map.geojson',
-      paint: { 'line-color': '#00FFFF', 'line-width': 4 },
-      beforeId: 'hiking-color',
-      fitToData: true,
-      padding: 60
-    });
+  await window.mapHelpers.addGeoJsonLine(map, {
+  id: 'route-file',
+  url: window.CONFIG?.GEOJSON_URL,
+  paint: { 'line-color': window.UI?.LINE_COLOR || '#00FFFF', 'line-width': window.UI?.LINE_WIDTH ?? 4 },
+  beforeId: 'hiking-color',
+  fitToData: true,
+  padding: window.UI?.FIT_PADDING ?? 60
+});
+
 
 
   // Sidebar list

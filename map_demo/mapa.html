@@ -292,8 +292,21 @@
       gap: 0;
     }
     #btnDownload.btn.icon svg{ display:block; }
+    
+    
+
 
   </style>
+  <style>
+  .loader {
+    position: absolute; inset: 0; display: none; place-items: center;
+    background: rgba(0,0,0,.25); backdrop-filter: blur(2px); z-index: 10;
+    font: 600 14px system-ui; color: #fff;
+  }
+  .loader.active { display: grid; }
+</style>
+<div id="loader" class="loader">Wczytywanie danych…</div>
+
 </head>
 <body>
 <div id="app">
@@ -331,6 +344,7 @@
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
   <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
   <script src="./js/config.local.js"></script>
+  <script src="./js/config.ui.js"></script>
   <script src="./js/lib/map-helpers.js"></script> 
   <script src="./js/app.js"></script>
 </body>
