@@ -30,8 +30,8 @@ Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wa�
 
 1. Sklonuj repozytorium:
    ```bash
-   git clone https://github.com/AleksandraDebiec/interaktywna_mapa_www.git
-   cd interaktywna_mapa_www
+   git clone https://github.com/MapMakeronline/mapa_www.git
+   cd mapa_www
    ```
 
 2. Skonfiguruj token Mapbox:
@@ -97,6 +97,9 @@ Aplikacja jest w pełni responsywna i dostosowuje się do różnych rozmiarów e
 Projekt jest stale rozwijany. Ostatnio dodane funkcje:
 - Przycisk "Replay" umożliwiający ponowne odtworzenie animacji dla wybranego szlaku
 - Ujednolicony wygląd przycisków na pasku odtwarzania dla lepszej estetyki
+- Naprawiona funkcjonalność przycisków pauza/wznów i innych kontrolek animacji
+- Ulepszony system zarządzania stanem animacji po jej zakończeniu
+- Dostosowane zachowanie paska odtwarzania, który pozostaje widoczny po zakończeniu animacji
 
 Plany na przyszłość:
 - Implementacja wyszukiwarki i filtrowania szlaków
@@ -118,4 +121,4 @@ Projekt jest dostępny na licencji [MIT](LICENSE).
 
 ---
 
-Projekt stworzony przez [AleksandraDebiec](https://github.com/AleksandraDebiec)
+Projekt rozwijany przez zespół [MapMakeronline](https://github.com/MapMakeronline), bazujący na oryginalnej pracy [AleksandraDebiec](https://github.com/AleksandraDebiec)
