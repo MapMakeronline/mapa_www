@@ -4,6 +4,22 @@ Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wa�
 
 ![Interaktywna Mapa Szlaków Pieszych](https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html)
 
+## 📋 Spis treści
+
+1. [🚀 Funkcjonalności](#-funkcjonalności)
+2. [🛠️ Technologie](#️-technologie)
+3. [📋 Wymagania](#-wymagania)
+4. [💻 Instalacja i uruchomienie](#-instalacja-i-uruchomienie)
+5. [🎮 Instrukcja obsługi](#-instrukcja-obsługi)
+6. [⚙️ Dostosowanie](#️-dostosowanie)
+7. [🔄 Dane](#-dane)
+8. [📱 Responsywność](#-responsywność)
+9. [👨‍💻 Rozwój projektu](#-rozwój-projektu)
+10. [🚀 Deployment (GCP + WordPress)](#-deployment-gcp--wordpress)
+11. [📂 Struktura kodu](#-struktura-kodu)
+12. [📜 Licencja](#-licencja)
+13. [🙏 Podziękowania](#-podziękowania)
+
 ## 🚀 Funkcjonalności
 
 - Interaktywna mapa oparta na MapBox GL JS
