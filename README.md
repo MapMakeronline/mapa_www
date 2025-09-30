@@ -103,6 +103,9 @@ Plany na przyszłość:
 - Dodanie informacji o punktach POI wzdłuż trasy
 - Rozszerzenie statystyk dla szlaków (długość, przewyższenie, trudność)
 - Możliwość zapisywania ulubionych tras
+- Więcej opcji kamery
+- Warstwy mapy
+
 
 ## 📜 Licencja
 
