@@ -109,6 +109,105 @@ Plany na przyszłość:
 - Więcej opcji kamery
 - Warstwy mapy
 
+## 🚀 Deployment (GCP + WordPress)
+
+Aplikacja może być łatwo wdrożona na Google Cloud Storage i osadzona w WordPress za pomocą Elementora.
+
+### Przygotowanie do wdrożenia
+
+1. **Konfiguracja Google Cloud Platform:**
+   ```bash
+   gcloud config set project [TWÓJ_PROJECT_ID]
+   PROJECT_ID="$(gcloud config get-value project)"
+   REGION="europe-central2"
+   BUCKET="maps-${PROJECT_ID}-demo"
+   ```
+
+2. **Utworzenie i konfiguracja bucketa:**
+   ```bash
+   gsutil mb -p "$PROJECT_ID" -l "$REGION" -c STANDARD "gs://$BUCKET"
+   gsutil uniformbucketlevelaccess set on "gs://$BUCKET"
+   gsutil iam ch allUsers:objectViewer "gs://$BUCKET"
+   ```
+
+3. **Konfiguracja produkcyjna Mapbox:**
+   Utwórz plik `map_demo/js/config.prod.js` (nie dodawaj do repozytorium):
+   ```javascript
+   window.CONFIG = {
+     MAPBOX_TOKEN: "TWÓJ_PUBLICZNY_TOKEN_MAPBOX",
+     GEOJSON_URL: "./assets/geo/converted_map.geojson"
+   };
+   ```
+
+### Wdrożenie aplikacji
+
+1. **Przygotowanie plików:**
+   ```bash
+   mkdir -p /tmp/deploy
+   cp -r map_demo /tmp/deploy/
+   sed -i 's#./js/config.local.js#./js/config.prod.js#g' /tmp/deploy/map_demo/mapa.html
+   
+   # GeoJSON w docelowej ścieżce
+   mkdir -p /tmp/deploy/map_demo/assets/geo
+   [ -f converted_map.geojson ] && cp converted_map.geojson /tmp/deploy/map_demo/assets/geo/converted_map.geojson
+   ```
+
+2. **Upload na GCS:**
+   ```bash
+   gsutil -m rsync -r -d /tmp/deploy/map_demo "gs://$BUCKET/map_demo"
+   
+   # Ustawienie poprawnych typów MIME
+   gsutil -m setmeta -h "Content-Type:text/javascript" "gs://$BUCKET/map_demo/js/*.js"
+   gsutil -m setmeta -h "Content-Type:text/css" "gs://$BUCKET/map_demo/assets/css/*.css"
+   ```
+
+3. **Publiczny URL aplikacji:**
+   ```
+   https://storage.googleapis.com/[NAZWA_BUCKETA]/map_demo/mapa.html
+   ```
+
+### Osadzanie w WordPress
+
+Aby osadzić mapę w WordPress za pomocą Elementora, dodaj blok HTML i wstaw następujący kod:
+
+```html
+<iframe
+  src="https://storage.googleapis.com/[NAZWA_BUCKETA]/map_demo/mapa.html"
+  width="100%"
+  height="800"
+  style="border:0; aspect-ratio: 16/9; max-width: 100%;"
+  loading="lazy"
+  allowfullscreen>
+</iframe>
+```
+----------------------------------------------------------------------------------------------------
+### DODATKOWO
+
+### Zabezpieczenie tokena Mapbox
+
+Zaleca się utworzenie specjalnego tokena produkcyjnego w Mapbox Dashboard z ograniczeniami:
+- Ustaw nazwę (np. `prod_gcs_mapa`)
+- Pozostaw domyślne uprawnienia (styles/tiles/fonts/images:read)
+- Ogranicz dozwolone URL-e do:
+  - `https://storage.googleapis.com/[NAZWA_BUCKETA]/*`
+  - `https://twojadomena.pl/*` (opcjonalnie)
+
+### Dodatkowe opcje
+
+- **Cache dla statycznych plików:**
+  ```bash
+  gsutil -m setmeta -h "Cache-Control:public,max-age=86400" "gs://$BUCKET/map_demo/js/*.js" "gs://$BUCKET/map_demo/assets/css/*.css" "gs://$BUCKET/map_demo/assets/geo/*.geojson"
+  ```
+
+- **Content Security Policy (CSP):**
+  ```bash
+  gsutil -m setmeta -h "Content-Security-Policy: frame-ancestors 'self' https://twojadomena.pl" "gs://$BUCKET/map_demo/mapa.html"
+  ```
+
+- **Szybki redeploy:**
+  ```bash
+  gsutil -m rsync -r -d /tmp/deploy/map_demo gs://$BUCKET/map_demo
+  ```
 
 ## 📜 Licencja
 
@@ -120,5 +219,7 @@ Projekt jest dostępny na licencji [MIT](LICENSE).
 - [Turf.js](https://turfjs.org/) za narzędzia do analizy danych geograficznych
 
 ---
+
+
 
 Projekt rozwijany przez zespół [MapMakeronline](https://github.com/MapMakeronline), bazujący na oryginalnej pracy [AleksandraDebiec](https://github.com/AleksandraDebiec)
