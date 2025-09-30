@@ -2,7 +2,7 @@
 
 Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wałbrzychu. Projekt umożliwia przeglądanie tras, animowane śledzenie szlaków z dynamiczną kamerą oraz interaktywne zarządzanie odtwarzaniem.
 
-![Interaktywna Mapa Szlaków Pieszych](https://via.placeholder.com/800x400?text=Interaktywna+Mapa+Szlak%C3%B3w+Pieszych)
+![Interaktywna Mapa Szlaków Pieszych](https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html)
 
 ## 🚀 Funkcjonalności
 
@@ -163,7 +163,7 @@ Aplikacja może być łatwo wdrożona na Google Cloud Storage i osadzona w WordP
 
 3. **Publiczny URL aplikacji:**
    ```
-   https://storage.googleapis.com/[NAZWA_BUCKETA]/map_demo/mapa.html
+   https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html
    ```
 
 ### Osadzanie w WordPress
