@@ -44,6 +44,25 @@
       padding:8px 12px; border-radius:999px; background:rgba(0,0,0,.45);
       box-shadow:0 4px 16px rgba(0,0,0,.3); backdrop-filter: blur(6px);
     }
+    
+    /* Ujednolicone style dla przycisków i kontrolek na pasku odtwarzania */
+    #timelineWrap .btn.chip,
+    #timelineWrap select.chip,
+    #timelineWrap #timeCounter.chip {
+      min-width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+    
+    #timelineWrap .btn.chip.icon {
+      min-width: 36px;
+      width: 36px;
+    }
     #timeline{ width:100%; -webkit-appearance:none; appearance:none; height:6px; border-radius:999px;
       background:linear-gradient(to right, #fff 0%, #fff 0%, rgba(255,255,255,.25) 0%);
       outline:none;
