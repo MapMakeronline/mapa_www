@@ -305,24 +305,24 @@ Aby zaktualizować dane mapy (trasy, punkty, itp.), należy:
 
 Po zmianie danych GeoJSON może być konieczna zmiana początkowego widoku mapy. Aby to zrobić:
 
-1. **Edytuj plik `js/config.ui.js`** - dostosuj parametry początkowego widoku mapy:
+1. **Edytuj plik `js/config.ui.js`** - dostosuj parametry początkowe mapy:
    ```javascript
    window.UI = {
      LINE_COLOR: '#00FFFF',   // Kolor linii szlaku
      LINE_WIDTH: 4,           // Grubość linii szlaku
      FIT_PADDING: 60,         // Margines wokół szlaku przy dopasowaniu widoku
-     START_CENTER: [16.29, 50.77],  // Początkowy środek mapy [długość, szerokość]
+     START_CENTER: [16.29, 50.77],  // Początkowy środek mapy [lng, lat]
      START_ZOOM: 12,          // Początkowe przybliżenie
      START_PITCH: 55,         // Początkowe nachylenie kamery
      START_BEARING: 10        // Początkowy kierunek kamery
    };
    ```
 
-2. **Dostosuj kolorowanie szlaków** - kolory szlaków można dostosować w `LINE_COLOR` w pliku `config.ui.js` lub w funkcji `addGeoJsonLine` dla bardziej zaawansowanych przypadków, bazując na atrybutach w pliku GeoJSON.
+2. **Dostosuj kolorowanie szlaków** - kolory szlaków można dostosować zmieniając wartość `LINE_COLOR` w pliku `config.ui.js` lub w funkcji `addGeoJsonLine` w pliku `app.js` dla bardziej zaawansowanej konfiguracji.
 
 ##### Testowanie i wdrażanie zmian
 
-1. **Testuj lokalnie** - sprawdź czy nowe dane wyświetlają się poprawnie
+1. **Testuj lokalnie** - uruchom stronę przez lokalny serwer HTTP (np. Python `http.server` lub VS Code Live Server) i sprawdź czy nowe dane wyświetlają się poprawnie
 2. **Wdroż zmiany** na serwer:
    ```bash
    # Prześlij zaktualizowany plik GeoJSON
