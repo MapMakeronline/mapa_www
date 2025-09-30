@@ -220,16 +220,17 @@ async function addGeoJsonLine(map, {
 
 
   function showTimelineUI(show){
-    if(timelineWrap) timelineWrap.style.display = show ? 'flex' : 'none';
-    document.body.classList.toggle('timeline-visible', !!show);
-    // Jeśli pokazujemy pasek, upewnijmy się że przycisk Replay jest widoczny
-    const btnReplay = document.getElementById('btnReplay');
-    if (btnReplay) {
-      btnReplay.style.display = 'flex';
-    }
+    // Zawsze pokazuj timeline gdy show=true lub gdy mamy aktywną animację
+    const shouldShow = show || (currentItem !== null && currentItem !== undefined);
+    if(timelineWrap) timelineWrap.style.display = shouldShow ? 'flex' : 'none';
+    document.body.classList.toggle('timeline-visible', !!shouldShow);
   }
   function setPauseUI(){
-    if(btnPause) btnPause.textContent = paused ? 'Wznów' : 'Pauza';
+    if(btnPause) {
+      btnPause.textContent = paused ? 'Wznów' : 'Pauza';
+      // Upewniamy się, że przycisk jest włączony gdy mamy aktywny element
+      btnPause.disabled = !(currentItem || (activeIdx !== null && activeIdx !== -1));
+    }
   }
   function paintSlider(phase){
     const pct = (phase*100).toFixed(1);
@@ -269,13 +270,27 @@ async function addGeoJsonLine(map, {
   }
   if(btnPause){
     btnPause.addEventListener('click', () => {
-      if(!currentItem) return;
+      // Pozwalamy na wznowienie nawet jeśli currentItem został zresetowany, ale mamy aktywny indeks
+      if(!currentItem && (activeIdx === null || activeIdx === -1)) return;
       
       if(!paused){
+        // Pauza animacji
         paused = true; setPauseUI();
         if(animId) cancelAnimationFrame(animId); animId = null;
       } else {
+        // Wznowienie animacji
         paused = false; setPauseUI();
+        
+        // Jeśli nie mamy currentItem, ale mamy activeIdx, próbujemy odtworzyć element
+        if(!currentItem && activeIdx !== null && activeIdx !== -1) {
+          const lastItem = items.find(it => it.idx === activeIdx);
+          if(lastItem) {
+            animateItem(lastItem);
+            return; // animateItem zainicjuje wszystko od nowa
+          }
+        }
+        
+        // Normalne wznowienie animacji
         const phase = Number(timeline.value)/1000;
         basePhase = phase; startPhase = phase; startTime = null;
         animId = requestAnimationFrame(window._rafFrame);
@@ -315,7 +330,9 @@ async function addGeoJsonLine(map, {
   map.on('click', (e) => {
     const target = e.originalEvent ? e.originalEvent.target : null;
     if(isInUI(target)) return;
-    if(!currentItem) return;
+    
+    // Pozwalamy na wznowienie nawet jeśli currentItem został zresetowany, ale mamy aktywny indeks
+    if(!currentItem && (activeIdx === null || activeIdx === -1)) return;
 
     // treat every click as toggle; resume from slider position
     seeking = false;
@@ -324,6 +341,17 @@ async function addGeoJsonLine(map, {
       if(animId) cancelAnimationFrame(animId); animId = null;
     } else {
       paused = false; setPauseUI();
+      
+      // Jeśli nie mamy currentItem, ale mamy activeIdx, próbujemy odtworzyć element
+      if(!currentItem && activeIdx !== null && activeIdx !== -1) {
+        const lastItem = items.find(it => it.idx === activeIdx);
+        if(lastItem) {
+          animateItem(lastItem);
+          return; // animateItem zainicjuje wszystko od nowa
+        }
+      }
+      
+      // Normalne wznowienie animacji
       const phase = Number(timeline.value)/1000;
       basePhase = phase; startPhase = phase; startTime = null;
       animId = requestAnimationFrame(window._rafFrame);
@@ -397,9 +425,20 @@ async function addGeoJsonLine(map, {
   let activeIdx = null;
   function setActive(idx){
     activeIdx = idx;
+    
+    // Aktualizuj stan przycisków na podstawie wybranego szlaku
+    const isActive = idx !== null && idx !== -1;
+    
+    // Włącz/wyłącz przyciski Replay i Download w zależności od aktywności szlaku
+    if(btnReplay) btnReplay.disabled = !isActive;
+    if(btnDownload) btnDownload.disabled = !isActive;
+    
+    // Aktualizuj klasy CSS dla elementów listy
     for(const el of list.querySelectorAll('.item')){
       el.classList.toggle('active', Number(el.dataset.idx) === idx);
     }
+    
+    // Przewiń do aktywnego elementu
     const current = list.querySelector('.item.active');
     if(current){ current.scrollIntoView({block:'nearest', behavior:'smooth'}); }
   }
@@ -431,7 +470,31 @@ async function addGeoJsonLine(map, {
     const _wasPaused = (typeof paused!=='undefined') ? paused : true;
     if(typeof animId!=='undefined' && animId){ try{ cancelAnimationFrame(animId); }catch(e){} animId = null; }
     if(typeof setPauseUI==='function'){ try{ paused = true; setPauseUI(); }catch(e){} }
-if(!currentItem || !currentPath) return;
+    
+    // Sprawdź czy mamy niezbędne dane
+    if(!currentItem) return;
+    
+    // Jeśli nie mamy ścieżki, ale mamy aktywny szlak, spróbujmy ją pobrać
+    if(!currentPath) {
+      try {
+        // Pobierz dane ścieżki dla aktualnego elementu
+        const hikingSource = map.getSource('hiking');
+        if(hikingSource) {
+          const data = hikingSource._data;
+          if(data && data.features) {
+            const feature = data.features.find(f => f.properties.idx === currentItem.idx);
+            if(feature) {
+              currentPath = feature;
+            }
+          }
+        }
+      } catch(e) {
+        console.error('Błąd podczas pobierania danych ścieżki', e);
+      }
+      
+      // Jeśli nadal nie mamy ścieżki, przerwij
+      if(!currentPath) return;
+    }
     const name = currentItem.name || 'trasa';
     const color = osmcToColor(currentItem.osmc || currentItem._osmc);
     const distKm = turf.length(currentPath);
@@ -608,11 +671,22 @@ try{
         try{ animId = requestAnimationFrame(window._rafFrame); }catch(e){}
       }
     }catch(e){}
-  const btnDownload = document.getElementById('btnDownload');
+const btnDownload = document.getElementById('btnDownload');
   if(btnDownload){
     btnDownload.addEventListener('click', ()=>{
-      if(!currentItem) return;
-      downloadCurrentRoute();
+      // Pozwalamy na pobranie nawet jeśli currentItem został zresetowany, ale mamy aktywny indeks
+      if(!currentItem && activeIdx !== null && activeIdx !== -1) {
+        // Znajdź ostatnio aktywny element
+        const lastItem = items.find(it => it.idx === activeIdx);
+        if(lastItem) {
+          // Tymczasowo ustaw currentItem aby pobranie zadziałało
+          currentItem = lastItem;
+          downloadCurrentRoute();
+          return;
+        }
+      } else if(currentItem) {
+        downloadCurrentRoute();
+      }
     });
   }
 
@@ -651,104 +725,69 @@ try{
   });
 
   function clearActive(){
+    // Usuń klasy aktywne z elementów listy
     for(const el of list.querySelectorAll('.item.active')) el.classList.remove('active');
+    
+    // Zatrzymaj animację
     if(animId) cancelAnimationFrame(animId);
-    animId = null; startTime = null; btnStop.disabled = true;
-    // Ukrywamy pasek odtwarzania
+    
+    // Resetuj zmienne animacji
+    animId = null;
+    startTime = null;
+    paused = true; // Zawsze ustawiamy stan pauzy na true po zatrzymaniu
+    setPauseUI(); // Aktualizacja przycisku pauzy
+    
+    // Ustaw przyciski w odpowiedni stan
+    btnStop.disabled = true;
+    if(btnPause) btnPause.disabled = true;
+    if(btnReplay) btnReplay.disabled = true;
+    if(btnDownload) btnDownload.disabled = true;
+    
+    // Ukryj pasek czasu
     showTimelineUI(false);
-    // Resetujemy wszystkie zmienne związane z aktualną animacją
-    currentItem = null; currentCoords = null; currentPath = null;
-    // Resetujemy także stan pauzy
-    paused = false; 
-    setPauseUI();
-  }
-
-  // Funkcja do tworzenia funkcji animacji dla konkretnego elementu
-  function createFrameFunction(item) {
-    if (!item || !item.coords) return;
-    
-    const path = turf.lineString(item.coords);
-    const pathDistance = turf.length(path); // km
-    
-    // Funkcja animacji
-    function frame(t){
-      if(startTime === null) startTime = t;
-      const phase = computePhase(t);
-      const distNow = pathDistance * phase;
-
-      // aktualny punkt + "następny" do obliczenia kierunku
-      const curr = turf.along(path, distNow).geometry.coordinates;
-      const next = turf.along(path, Math.min(pathDistance, distNow + Math.max(0.01, pathDistance*0.005))).geometry.coordinates;
-
-      // marker + popup
-      const lngLat = { lng: curr[0], lat: curr[1] };
-      const elevation = Math.floor(map.queryTerrainElevation(lngLat, { exaggerated: false }) || 0);
-      setPopupContent(lngLat, phase);
-      if (marker) marker.setLngLat(lngLat);
-
-      // gradient "progress"
-      map.setPaintProperty('anim-line', 'line-gradient', ['step',['line-progress'],'#00E5FF', phase, 'rgba(255,0,0,0)']);
-      // pasek postępu
-      if(timeline){ timeline.value = Math.round(phase*1000); paintSlider(phase); }
-      updateTimeUI(phase);
-
-      // KAMERA: podążaj za markerem + obrót zgodny z kierunkiem
-      const heading = turf.bearing(turf.point(curr), turf.point(next)); // stopnie
-      map.jumpTo({
-        center: lngLat,
-        bearing: heading,
-        zoom: Math.max(14.5, map.getZoom()),
-        pitch: Math.max(55, map.getPitch())
-      });
-
-      if (phase < 1){
-        animId = requestAnimationFrame(frame);
-      } else {
-        btnStop.disabled = true;
-        updateTimeUI(1);
-        // Nie ukrywamy paska odtwarzania, aby można było użyć przycisku Replay
-        // Zamieniamy tylko pokazywanie paska z ustawieniem fazy na 1 (koniec)
-        timeline.value = 1000;
-        paintSlider(1);
-        
-        // Anulujemy animację, ale nie zmieniamy stanu pauzy
-        if(animId) cancelAnimationFrame(animId);
-        animId = null;
-        
-        // Zachowujemy referencję do currentItem, ale resetujemy inne zmienne animacji
-        currentCoords = null; currentPath = null;
-      }
-    }
-    
-    // Zapisujemy funkcję frame dla możliwości późniejszego użycia
-    window._rafFrame = frame;
   }
 
   function animateItem(item){
-    currentItem = item; currentCoords = item.coords; currentPath = turf.lineString(item.coords);
+    // Zapamiętujemy aktywny szlak dla późniejszego użycia
+    currentItem = item; 
+    currentCoords = item.coords; 
+    currentPath = turf.lineString(item.coords);
+    activeIdx = item.idx; // Zapamiętaj indeks elementu
+    
+    // Aktualizuj UI
     clearActive();
     const el = list.querySelector(`.item[data-idx="${item.idx}"]`);
     if(el) el.classList.add('active');
 
+    // Ustaw parametry animacji
     const path = turf.lineString(item.coords);
     const pathDistance = turf.length(path); // km
     const BASE_MS_PER_KM = 9000; 
     const duration = pathDistance * BASE_MS_PER_KM; 
     baseDuration = duration; 
     currentDuration = baseDuration / speedMultiplier; 
+    
+    // Reset wskaźników animacji
     startPhase = 0; 
     basePhase = 0; 
     
+    // Aktualizuj suwak
     if(timeline){ 
       timeline.value = 0; 
       paintSlider(0); 
     } 
     
-    // Ustawiamy stan animacji jako odtwarzanej
+    // Wznów odtwarzanie i aktualizuj UI
     paused = false; 
     setPauseUI(); 
     showTimelineUI(true);
-    updateTimeUI(0); // 6 s/km
+    updateTimeUI(0);
+    
+    // Włącz wszystkie przyciski kontrolne
+    if(btnPause) btnPause.disabled = false;
+    if(btnStop) btnStop.disabled = false;
+    if(btnReplay) btnReplay.disabled = false;
+    if(btnDownload) btnDownload.disabled = false;
 
     // przygotuj warstwę animacji i zbliż do trasy
     const animGeo = { type:'FeatureCollection', features:[{ type:'Feature', geometry:{ type:'LineString', coordinates:item.coords }, properties:{} }] };
@@ -796,18 +835,23 @@ try{
       if (phase < 1){
         animId = requestAnimationFrame(frame);
       } else {
-        btnStop.disabled = true;
+        // Aktualizacja UI po zakończeniu animacji
+        btnStop.disabled = false;  // Umożliwiamy zatrzymanie nawet po zakończeniu
         updateTimeUI(1);
-        // Nie ukrywamy paska odtwarzania, aby można było użyć przycisku Replay
-        timeline.value = 1000;
+        timeline.value = 1000;  // Upewnijmy się, że suwak jest na końcu
         paintSlider(1);
         
-        // Po zakończeniu animacji zatrzymujemy ją, ale zachowujemy referencję do currentItem
+        // Animacja zakończona - zaktualizuj stan
         if(animId) cancelAnimationFrame(animId);
         animId = null;
+        paused = true;  // Zaznaczamy, że animacja jest zatrzymana
+        setPauseUI(); // Aktualizuj przycisk pauza/wznów
         
-        // Nie zmieniamy stanu pauzy ani nie resetujemy currentItem
-        // dzięki czemu przycisk Replay będzie działał
+        // Zachowujemy referencję do currentItem, ale resetujemy inne zmienne animacji
+        currentCoords=null; currentPath=null;
+        
+        // Upewniamy się, że timeline zostaje widoczny
+        showTimelineUI(true);
       }
     }
 
@@ -826,16 +870,44 @@ try{
   });
 
   btnStop.addEventListener('click', ()=>{
+    // Zatrzymaj i zresetuj animację
+    if(animId) {
+      cancelAnimationFrame(animId);
+      animId = null;
+    }
+    
+    // Ukryj elementy UI animacji
     setActive(-1);
     clearActive();
+    
+    // Usuń markery i popup
     if(marker){ marker.remove(); marker = null; }
     if(popup){ popup.remove(); popup = null; }
+    
+    // Wyczyść linię animacji
     map.setPaintProperty('anim-line', 'line-gradient', ['step',['line-progress'],'rgba(255,0,0,0)', 0, 'rgba(255,0,0,0)']);
+    
+    // Resetuj wszystkie zmienne animacji
+    currentItem = null;
+    currentPath = null;
+    currentCoords = null;
+    paused = true;
+    
+    // Ukryj pasek czasu
+    showTimelineUI(false);
+    
+    // Aktualizuj stan przycisków
+    btnStop.disabled = true;
+    if(btnPause) btnPause.disabled = true;
+    if(btnReplay) btnReplay.disabled = true;
   });
   
   // Obsługa przycisku Replay
   const btnReplay = document.getElementById('btnReplay');
   if(btnReplay) {
+    // Na początku przycisk Replay powinien być nieaktywny
+    btnReplay.disabled = true;
+    
     btnReplay.addEventListener('click', ()=>{
       // Jeśli animacja się zakończyła lub przycisk Replay został kliknięty podczas animacji
       if(currentItem) {
