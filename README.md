@@ -1,8 +1,49 @@
 # Interaktywna Mapa WWW
 
-Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wałbrzychu. Projekt umożliwia przeglądanie tras, animowane śledzenie szlaków z dynamiczną kamerą oraz interaktywne zarządzanie odtwarzaniem.
+Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wałbrzychu. Projekt umożliwia przeglądanie tras, animowane śledzenie szlaków z dynamiczną kamerą oraz interaktywne zarządzanie.
 
 ![Interaktywna Mapa Szlaków Pieszych](https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html)
+
+Aby osadzić mapę w WordPress za pomocą Elementora, dodaj blok HTML i wstaw odpowiedni kod iFrame.
+
+#### Gotowce iFrame
+
+**Pełna szerokość (desktop):**
+```html
+<iframe
+  src="https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html?v=20251001"
+  width="100%"
+  height="800"
+  style="border:0; aspect-ratio: 16/9; max-width: 100%;"
+  loading="lazy"
+  allowfullscreen>
+</iframe>
+```
+
+**Kafelek 16:9 (w kolumnie):**
+```html
+<iframe
+  src="https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html?v=20251001"
+  width="100%"
+  height="480"
+  style="border:0; aspect-ratio: 16/9; max-width: 100%;"
+  loading="lazy"
+  allowfullscreen>
+</iframe>
+```
+
+**Mobile (sekcja z min-height):**
+```html
+<iframe
+  src="https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html?v=20251001"
+  width="100%"
+  style="border:0; width:100%; min-height:70vh; max-width: 100%;"
+  loading="lazy"
+  allowfullscreen>
+</iframe>
+```
+
+> Po aktualizacji treści dopisz/zmień `?v=YYYYMMDD` (np. `?v=20251001`), aby ominąć cache przeglądarki.
 
 ## 📋 Spis treści
 
@@ -67,6 +108,27 @@ Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wa�
 - Token dostępu do API Mapbox
 - Nowoczesna przeglądarka internetowa z obsługą JavaScript
 
+### Wymagania przeglądarki
+- Przeglądarka z **WebGL**: Chrome, Firefox, Edge, Safari (nowsze wersje).
+- Zalecane: stabilne łącze internetowe i włączony JavaScript.
+- Mobile: nowsze Android/iOS; wydajność zależna od urządzenia (GPU/RAM).
+
+### Kompatybilność z przeglądarkami
+
+Aplikacja działa poprawnie na większości nowoczesnych przeglądarek w ich najnowszych wersjach:
+- Google Chrome (rekomendowana)
+- Microsoft Edge
+- Mozilla Firefox
+- Safari
+
+#### Znane ograniczenia
+- **Internet Explorer**: Aplikacja nie jest kompatybilna z IE11 ani starszymi wersjami
+- **Stare wersje przeglądarek**: Aplikacja wymaga obsługi nowoczesnych standardów JavaScript (ES6+)
+- **Mobilne przeglądarki**: Na niektórych starszych urządzeniach mogą występować problemy z wydajnością
+- Bardzo duże pliki **GeoJSON** mogą wolniej się renderować
+- Słabsze urządzenia mobilne: niższa płynność, krótszy czas pracy na baterii
+- Limit zapytań Mapbox przy dużym ruchu (zależny od planu)
+
 ## 💻 Instalacja i uruchomienie
 
 1. Sklonuj repozytorium:
@@ -96,16 +158,23 @@ Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wa�
 
 ## 🎮 Instrukcja obsługi
 
-1. Wybierz szlak z listy po prawej stronie, aby rozpocząć animację
-2. Używaj panelu kontrolnego na dole ekranu do:
+### Szybki start (60 sekund)
+1. **Otwórz mapę**: strona ładuje się automatycznie z widokiem początkowym.
+2. **Wybierz szlak** z listy po prawej stronie, aby rozpocząć animację.
+3. **Steruj odtwarzaniem**: używaj panelu kontrolnego na dole ekranu do:
    - Pauzowania/wznawiania animacji
    - Ponownego odtworzenia animacji po jej zakończeniu (przycisk "Replay")
    - Zmiany prędkości odtwarzania
    - Przewijania postępu za pomocą suwaka
    - Pobierania danych szlaku
-3. Przycisk "Resetuj animację" pozwala powrócić do stanu początkowego
-4. Po zakończeniu animacji pasek odtwarzania pozostaje widoczny, umożliwiając ponowne odtworzenie
-5. Na urządzeniach mobilnych można schować/pokazać panel boczny za pomocą przycisku menu
+4. Przycisk "Resetuj animację" pozwala powrócić do stanu początkowego
+5. Po zakończeniu animacji pasek odtwarzania pozostaje widoczny, umożliwiając ponowne odtworzenie
+6. Na urządzeniach mobilnych można schować/pokazać panel boczny za pomocą przycisku menu
+
+### Sterowanie i gesty
+- **Mysz/trackpad:** przewijanie = zoom · przeciąganie = przesuwanie · prawy przycisk + przeciąganie = obrót/pochylenie.
+- **Dotyk (mobile):** szczypanie = zoom · dwa palce = obrót/pochylenie.
+- **Skróty:** spacja = pauza/wznowienie · R = reset · ←/→ = krok w tył/przód (jeśli włączone).
 
 ## ⚙️ Dostosowanie
 
@@ -133,6 +202,65 @@ Aplikacja jest w pełni responsywna i dostosowuje się do różnych rozmiarów e
 - Na urządzeniach mobilnych panel boczny można ukryć/pokazać
 - Elementy interfejsu zmieniają układ dla optymalnego doświadczenia użytkownika
 
+## 🎨 Personalizacja wizualna
+
+### Kolory i style
+
+Podstawowe kolory i style można zmienić w pliku `config.ui.js`:
+
+```javascript
+window.UI = {
+  LINE_COLOR: '#00FFFF',   // Kolor linii szlaku (cyjan)
+  LINE_WIDTH: 4,           // Grubość linii szlaku
+  // ... inne ustawienia
+};
+```
+
+Bardziej zaawansowane zmiany stylów wymagają modyfikacji pliku `assets/css/styles.css`:
+
+```css
+/* Przykłady stylowania elementów */
+
+/* Panel boczny */
+.sidebar {
+  background-color: rgba(35, 55, 75, 0.9);
+}
+
+/* Przyciski odtwarzania */
+.timeline-controls button {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+}
+
+/* Marker trasy */
+.marker {
+  background-color: #007cbf;
+  border: 2px solid white;
+}
+```
+
+### Style mapy
+
+W pliku `app.js` można zmienić styl mapy (dostępne style Mapbox):
+
+```javascript
+// Przykładowe style mapy
+const mapStyles = {
+  outdoors: 'mapbox://styles/mapbox/outdoors-v12',  // Standardowy styl outdoor
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',  // Zdjęcia satelitarne z ulicami
+  light: 'mapbox://styles/mapbox/light-v11',  // Jasny, minimalny styl
+  dark: 'mapbox://styles/mapbox/dark-v11',  // Ciemny styl
+  streets: 'mapbox://styles/mapbox/streets-v12'  // Standardowy styl uliczny
+};
+
+// Zmień style w funkcji inicjalizacji mapy
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: mapStyles.outdoors,  // Wybierz styl
+  // ...
+});
+```
+
 ## 👨‍💻 Rozwój projektu
 
 Projekt jest stale rozwijany. Ostatnio dodane funkcje:
@@ -141,6 +269,36 @@ Projekt jest stale rozwijany. Ostatnio dodane funkcje:
 - Naprawiona funkcjonalność przycisków pauza/wznów i innych kontrolek animacji
 - Ulepszony system zarządzania stanem animacji po jej zakończeniu
 - Dostosowane zachowanie paska odtwarzania, który pozostaje widoczny po zakończeniu animacji
+
+### Konwencje i standardy (dla deweloperów)
+
+Podczas rozwijania projektu zaleca się przestrzeganie następujących konwencji:
+
+1. **JavaScript:**
+   - Używamy ES6+ (koniecznie obsługiwane przez nowoczesne przeglądarki)
+   - Async/await zamiast callbacków tam, gdzie to możliwe
+   - Camel case dla zmiennych i funkcji (`initMap`, `currentRoute`)
+   - Komentarze JSDoc dla głównych funkcji
+
+2. **CSS:**
+   - BEM (Block Element Modifier) dla nazewnictwa klas
+   - Zmienne CSS dla kolorów i powtarzalnych wartości
+   - Media queries dla różnych rozmiarów ekranów
+
+3. **Pliki i katalogi:**
+   - Nazwy małymi literami z myślnikami (`map-helpers.js`, `user-controls.js`)
+   - Logiczny podział funkcji między plikami
+   - Biblioteki zewnętrzne zawsze w osobnym katalogu (`js/vendor/`)
+
+4. **Git:**
+   - Opisowe nazwy commitów w języku angielskim
+   - Osobne branche dla nowych funkcji (`feature/search-filter`)
+   - Pull requesty dla większych zmian
+
+5. **GeoJSON:**
+   - Poprawny format GeoJSON zgodny ze specyfikacją
+   - Jednolity system nazewnictwa właściwości (`name`, `type`, `difficulty`)
+   - Walidacja przed wdrożeniem
 
 Plany na przyszłość:
 - Implementacja wyszukiwarki i filtrowania szlaków
