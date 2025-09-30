@@ -222,6 +222,11 @@ async function addGeoJsonLine(map, {
   function showTimelineUI(show){
     if(timelineWrap) timelineWrap.style.display = show ? 'flex' : 'none';
     document.body.classList.toggle('timeline-visible', !!show);
+    // Jeśli pokazujemy pasek, upewnijmy się że przycisk Replay jest widoczny
+    const btnReplay = document.getElementById('btnReplay');
+    if (btnReplay) {
+      btnReplay.style.display = 'flex';
+    }
   }
   function setPauseUI(){
     if(btnPause) btnPause.textContent = paused ? 'Wznów' : 'Pauza';
@@ -648,7 +653,10 @@ const btnDownload = document.getElementById('btnDownload');
     for(const el of list.querySelectorAll('.item.active')) el.classList.remove('active');
     if(animId) cancelAnimationFrame(animId);
     animId = null; startTime = null; btnStop.disabled = true;
+    // Ukrywamy pasek odtwarzania
     showTimelineUI(false);
+    // Resetujemy wszystkie zmienne związane z aktualną animacją
+    currentItem = null; currentCoords = null; currentPath = null;
   }
 
   function animateItem(item){
@@ -710,8 +718,13 @@ const btnDownload = document.getElementById('btnDownload');
       } else {
         btnStop.disabled = true;
         updateTimeUI(1);
-        showTimelineUI(false); paused=false; setPauseUI();
-        currentItem=null; currentCoords=null; currentPath=null;
+        // Nie ukrywamy paska odtwarzania, aby można było użyć przycisku Replay
+        // Zamieniamy tylko pokazywanie paska z ustawieniem fazy na 1 (koniec)
+        timeline.value = 1000;
+        paintSlider(1);
+        paused=true; setPauseUI();
+        // Zachowujemy referencję do currentItem, ale resetujemy inne zmienne animacji
+        currentCoords=null; currentPath=null;
       }
     }
 
@@ -736,6 +749,24 @@ const btnDownload = document.getElementById('btnDownload');
     if(popup){ popup.remove(); popup = null; }
     map.setPaintProperty('anim-line', 'line-gradient', ['step',['line-progress'],'rgba(255,0,0,0)', 0, 'rgba(255,0,0,0)']);
   });
+  
+  // Obsługa przycisku Replay
+  const btnReplay = document.getElementById('btnReplay');
+  if(btnReplay) {
+    btnReplay.addEventListener('click', ()=>{
+      // Jeśli animacja się zakończyła lub przycisk Replay został kliknięty podczas animacji
+      if(currentItem) {
+        // Restart animacji od początku dla aktualnego szlaku
+        animateItem(currentItem);
+      } else if(activeIdx !== null && activeIdx !== -1) {
+        // Jeśli animacja zakończona, ale mamy informację o ostatnio aktywnym szlaku
+        const lastItem = items.find(it => it.idx === activeIdx);
+        if(lastItem) {
+          animateItem(lastItem);
+        }
+      }
+    });
+  }
 
   // start view – całość
   try {
