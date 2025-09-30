@@ -270,6 +270,7 @@ async function addGeoJsonLine(map, {
   if(btnPause){
     btnPause.addEventListener('click', () => {
       if(!currentItem) return;
+      
       if(!paused){
         paused = true; setPauseUI();
         if(animId) cancelAnimationFrame(animId); animId = null;
@@ -607,7 +608,7 @@ try{
         try{ animId = requestAnimationFrame(window._rafFrame); }catch(e){}
       }
     }catch(e){}
-const btnDownload = document.getElementById('btnDownload');
+  const btnDownload = document.getElementById('btnDownload');
   if(btnDownload){
     btnDownload.addEventListener('click', ()=>{
       if(!currentItem) return;
@@ -657,6 +658,70 @@ const btnDownload = document.getElementById('btnDownload');
     showTimelineUI(false);
     // Resetujemy wszystkie zmienne związane z aktualną animacją
     currentItem = null; currentCoords = null; currentPath = null;
+    // Resetujemy także stan pauzy
+    paused = false; 
+    setPauseUI();
+  }
+
+  // Funkcja do tworzenia funkcji animacji dla konkretnego elementu
+  function createFrameFunction(item) {
+    if (!item || !item.coords) return;
+    
+    const path = turf.lineString(item.coords);
+    const pathDistance = turf.length(path); // km
+    
+    // Funkcja animacji
+    function frame(t){
+      if(startTime === null) startTime = t;
+      const phase = computePhase(t);
+      const distNow = pathDistance * phase;
+
+      // aktualny punkt + "następny" do obliczenia kierunku
+      const curr = turf.along(path, distNow).geometry.coordinates;
+      const next = turf.along(path, Math.min(pathDistance, distNow + Math.max(0.01, pathDistance*0.005))).geometry.coordinates;
+
+      // marker + popup
+      const lngLat = { lng: curr[0], lat: curr[1] };
+      const elevation = Math.floor(map.queryTerrainElevation(lngLat, { exaggerated: false }) || 0);
+      setPopupContent(lngLat, phase);
+      if (marker) marker.setLngLat(lngLat);
+
+      // gradient "progress"
+      map.setPaintProperty('anim-line', 'line-gradient', ['step',['line-progress'],'#00E5FF', phase, 'rgba(255,0,0,0)']);
+      // pasek postępu
+      if(timeline){ timeline.value = Math.round(phase*1000); paintSlider(phase); }
+      updateTimeUI(phase);
+
+      // KAMERA: podążaj za markerem + obrót zgodny z kierunkiem
+      const heading = turf.bearing(turf.point(curr), turf.point(next)); // stopnie
+      map.jumpTo({
+        center: lngLat,
+        bearing: heading,
+        zoom: Math.max(14.5, map.getZoom()),
+        pitch: Math.max(55, map.getPitch())
+      });
+
+      if (phase < 1){
+        animId = requestAnimationFrame(frame);
+      } else {
+        btnStop.disabled = true;
+        updateTimeUI(1);
+        // Nie ukrywamy paska odtwarzania, aby można było użyć przycisku Replay
+        // Zamieniamy tylko pokazywanie paska z ustawieniem fazy na 1 (koniec)
+        timeline.value = 1000;
+        paintSlider(1);
+        
+        // Anulujemy animację, ale nie zmieniamy stanu pauzy
+        if(animId) cancelAnimationFrame(animId);
+        animId = null;
+        
+        // Zachowujemy referencję do currentItem, ale resetujemy inne zmienne animacji
+        currentCoords = null; currentPath = null;
+      }
+    }
+    
+    // Zapisujemy funkcję frame dla możliwości późniejszego użycia
+    window._rafFrame = frame;
   }
 
   function animateItem(item){
@@ -667,7 +732,22 @@ const btnDownload = document.getElementById('btnDownload');
 
     const path = turf.lineString(item.coords);
     const pathDistance = turf.length(path); // km
-    const BASE_MS_PER_KM = 9000; const duration = pathDistance * BASE_MS_PER_KM; baseDuration = duration; currentDuration = baseDuration / speedMultiplier; startPhase = 0; basePhase = 0; if(timeline){ timeline.value = 0; paintSlider(0); } paused=false; setPauseUI(); showTimelineUI(true);
+    const BASE_MS_PER_KM = 9000; 
+    const duration = pathDistance * BASE_MS_PER_KM; 
+    baseDuration = duration; 
+    currentDuration = baseDuration / speedMultiplier; 
+    startPhase = 0; 
+    basePhase = 0; 
+    
+    if(timeline){ 
+      timeline.value = 0; 
+      paintSlider(0); 
+    } 
+    
+    // Ustawiamy stan animacji jako odtwarzanej
+    paused = false; 
+    setPauseUI(); 
+    showTimelineUI(true);
     updateTimeUI(0); // 6 s/km
 
     // przygotuj warstwę animacji i zbliż do trasy
@@ -719,12 +799,15 @@ const btnDownload = document.getElementById('btnDownload');
         btnStop.disabled = true;
         updateTimeUI(1);
         // Nie ukrywamy paska odtwarzania, aby można było użyć przycisku Replay
-        // Zamieniamy tylko pokazywanie paska z ustawieniem fazy na 1 (koniec)
         timeline.value = 1000;
         paintSlider(1);
-        paused=true; setPauseUI();
-        // Zachowujemy referencję do currentItem, ale resetujemy inne zmienne animacji
-        currentCoords=null; currentPath=null;
+        
+        // Po zakończeniu animacji zatrzymujemy ją, ale zachowujemy referencję do currentItem
+        if(animId) cancelAnimationFrame(animId);
+        animId = null;
+        
+        // Nie zmieniamy stanu pauzy ani nie resetujemy currentItem
+        // dzięki czemu przycisk Replay będzie działał
       }
     }
 
