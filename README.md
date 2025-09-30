@@ -405,7 +405,70 @@ Istnieją trzy główne podejścia do aktualizacji lub dodawania nowych danych G
 
 **Uwaga o bezpieczeństwie tokena:** token w `config.hel.prod.js` to ten sam publiczny token Mapbox co w `config.prod.js`. Upewnij się, że w Mapbox **Allowed URLs** masz dodany Twój bucket GCS (i ewentualnie domenę WordPress).
 
-## 📜 Licencja
+## � Struktura kodu
+
+Poniżej przedstawiono strukturę projektu i omówienie najważniejszych plików, co pomaga w orientacji w kodzie i ułatwia wprowadzanie zmian.
+
+### Główne pliki i katalogi
+
+```
+map_demo/
+├── mapa.html              # Główny plik HTML aplikacji
+├── assets/                # Zasoby statyczne
+│   ├── css/              
+│   │   └── styles.css     # Style CSS aplikacji
+│   └── geo/
+│       └── converted_map.geojson  # Dane geograficzne tras
+└── js/
+    ├── app.js             # Główna logika aplikacji
+    ├── config.example.js  # Przykładowy plik konfiguracyjny
+    ├── config.local.js    # Konfiguracja lokalna (niewersjonowana)
+    ├── config.prod.js     # Konfiguracja produkcyjna
+    ├── config.ui.js       # Konfiguracja UI (kolory, widok itp.)
+    └── lib/
+        └── map-helpers.js # Funkcje pomocnicze do pracy z mapą
+```
+
+### Kluczowe pliki i ich funkcje
+
+#### `mapa.html`
+- Struktura HTML aplikacji
+- Definicja interfejsu użytkownika
+- Ładowanie skryptów JS i arkuszy CSS
+
+#### `js/app.js`
+- Inicjalizacja aplikacji i mapy
+- Obsługa interakcji użytkownika
+- Animacja tras i obsługa kontrolek
+- Główna logika biznesowa
+
+#### `js/config.*.js` (pliki konfiguracyjne)
+- **config.example.js**: Przykład konfiguracji z pustymi wartościami
+- **config.local.js**: Lokalna konfiguracja deweloperska (token Mapbox)
+- **config.prod.js**: Konfiguracja produkcyjna
+- **config.ui.js**: Parametry wizualne i ustawienia widoku
+
+#### `js/lib/map-helpers.js`
+- Funkcje pomocnicze do pracy z Mapbox GL JS
+- Narzędzia do manipulacji danymi geograficznymi
+- Abstrakcja złożonych operacji na mapie
+
+### Kluczowe funkcje
+
+#### W `app.js`
+- `initApp()` - Inicjalizacja aplikacji
+- `addGeoJsonLine()` - Dodawanie linii GeoJSON do mapy
+- `animateRoute()` - Animacja poruszania się po trasie
+- `initTimelineControls()` - Inicjalizacja kontrolek odtwarzania
+- `initSidebar()` - Inicjalizacja panelu bocznego z listą tras
+
+#### W `map-helpers.js`
+- `createPoint()` - Tworzenie punktów na mapie
+- `getBearing()` - Obliczanie kąta między punktami
+- `getRoutePoints()` - Ekstrakcja punktów z geometrii GeoJSON
+- `addLayerIfNotExists()` - Dodawanie warstwy do mapy
+
+## �📜 Licencja
 
 Projekt jest dostępny na licencji [MIT](LICENSE).
 
