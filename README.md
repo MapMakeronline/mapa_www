@@ -290,52 +290,120 @@ gsutil -m setmeta -h "Content-Type:text/javascript" gs://maps-mapmaker-productio
 gsutil -m setmeta -h "Content-Type:text/css" gs://maps-mapmaker-production-293411-demo/map_demo/assets/css/*.css
 ```
 
-#### Scenariusz C — aktualizacja danych GeoJSON
+#### Scenariusz C — Dodanie nowego GeoJSON (3 warianty)
 
-Aby zaktualizować dane mapy (trasy, punkty, itp.), należy:
+Istnieją trzy główne podejścia do aktualizacji lub dodawania nowych danych GeoJSON, w zależności od potrzeb projektu:
 
-1. **Przygotować plik GeoJSON** - upewnij się, że plik jest poprawnie sformatowany w standardzie GeoJSON
-2. **Zastąpić istniejący plik** lokalnie w katalogu `/map_demo/assets/geo/`
-3. **Przesłać nowy plik na serwer**:
-   ```bash
-   gsutil cp map_demo/assets/geo/converted_map.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
-   ```
+##### Wariant 1 — Podmiana istniejących danych na nowe (ten sam URL)
 
-##### Konfiguracja widoku mapy
+**Kiedy stosować:** gdy chcesz, aby aktualna strona pokazywała nowy zestaw tras (np. Hel zamiast Wałbrzycha).
 
-Po zmianie danych GeoJSON może być konieczna zmiana początkowego widoku mapy. Aby to zrobić:
-
-1. **Edytuj plik `js/config.ui.js`** - dostosuj parametry początkowe mapy:
+1. **Lokalnie podmień plik:** `map_demo/assets/geo/converted_map.geojson` na nowy GeoJSON.
+2. **(Opcjonalnie) zaktualizuj startowy widok** w `map_demo/js/config.ui.js`:
    ```javascript
    window.UI = {
      LINE_COLOR: '#00FFFF',   // Kolor linii szlaku
      LINE_WIDTH: 4,           // Grubość linii szlaku
      FIT_PADDING: 60,         // Margines wokół szlaku przy dopasowaniu widoku
-     START_CENTER: [16.29, 50.77],  // Początkowy środek mapy [lng, lat]
-     START_ZOOM: 12,          // Początkowe przybliżenie
-     START_PITCH: 55,         // Początkowe nachylenie kamery
-     START_BEARING: 10        // Początkowy kierunek kamery
+     START_CENTER: [18.80, 54.60],  // Nowy środek mapy [lng, lat] np. dla Helu
+     START_ZOOM: 11,          // Dostosowane przybliżenie
+     START_PITCH: 55,         // Nachylenie kamery
+     START_BEARING: 10        // Kierunek kamery
    };
    ```
-
-2. **Dostosuj kolorowanie szlaków** - kolory szlaków można dostosować zmieniając wartość `LINE_COLOR` w pliku `config.ui.js` lub w funkcji `addGeoJsonLine` w pliku `app.js` dla bardziej zaawansowanej konfiguracji.
-
-##### Testowanie i wdrażanie zmian
-
-1. **Testuj lokalnie** - uruchom stronę przez lokalny serwer HTTP (np. Python `http.server` lub VS Code Live Server) i sprawdź czy nowe dane wyświetlają się poprawnie
-2. **Wdroż zmiany** na serwer:
+3. **Prześlij plik na serwer:**
    ```bash
-   # Prześlij zaktualizowany plik GeoJSON
    gsutil cp map_demo/assets/geo/converted_map.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
-   
-   # Jeśli zmieniłeś plik konfiguracyjny UI
-   gsutil cp map_demo/js/config.ui.js gs://maps-mapmaker-production-293411-demo/map_demo/js/config.ui.js
-   
-   # Jeśli zmieniłeś kod JS
+   ```
+4. **W Elementorze dodaj parametr wersji** do iFrame, aby ominąć cache:
+   `...?v=20251001`
+
+> Dzięki auto-zoomowi (`fitBounds`) mapa sama przeleci nad nowymi danymi.
+
+##### Wariant 2 — Drugi GeoJSON jako dodatkowa warstwa na tej samej stronie
+
+**Kiedy stosować:** gdy chcesz mieć kilka tras/obszarów w jednym interfejsie i umożliwić przełączanie między nimi.
+
+1. **Dodaj nowy plik GeoJSON**, np.: `map_demo/assets/geo/hel.geojson`.
+2. **W `map_demo/js/app.js` dodaj nową warstwę** po załadowaniu mapy:
+   ```javascript
+   await window.mapHelpers.addGeoJsonLine(map, {
+     id: 'route-hel',
+     url: './assets/geo/hel.geojson',
+     paint: { 'line-color': '#00E5FF', 'line-width': 4 },
+     beforeId: 'hiking-color',   // lub inny layer, nad/pod którym chcesz rysować
+     fitToData: false            // fit wykonamy ręcznie przy kliknięciu
+   });
+
+   // Prosty przycisk na liście (przykład):
+   document.getElementById('list')?.insertAdjacentHTML('beforeend',
+     '<div class="item" id="item-hel"><div class="name">Hel – trasa</div></div>');
+
+   // Fit do danych po kliknięciu:
+   (async () => {
+     const data = await (await fetch('./assets/geo/hel.geojson')).json();
+     const bbox = turf.bbox(data);
+     document.getElementById('item-hel')?.addEventListener('click', () => {
+       map.fitBounds(bbox, { padding: 60 });
+     });
+   })();
+   ```
+3. **Prześlij pliki na serwer:**
+   ```bash
+   gsutil cp map_demo/assets/geo/hel.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/hel.geojson
    gsutil cp map_demo/js/app.js gs://maps-mapmaker-production-293411-demo/map_demo/js/app.js
+   gsutil setmeta -h "Content-Type:text/javascript" gs://maps-mapmaker-production-293411-demo/map_demo/js/app.js
    ```
 
-**Wskazówka:** po aktualizacji dopisz parametr wersji w iFrame w Elementorze, np. `?v=20251001`, aby zapobiec problemom z cache przeglądarki.
+> Możesz dodać ukrywanie/pokazywanie warstw: `map.setLayoutProperty('route-hel-line','visibility','none'|'visible')`.
+
+##### Wariant 3 — Nowa strona z nowymi danymi
+
+**Kiedy stosować:** gdy potrzebujesz osobnego adresu URL dla nowej mapy (np. do innego iFrame).
+
+1. **Sklonuj istniejącą stronę:**
+   ```bash
+   cp map_demo/mapa.html map_demo/mapa_hel.html
+   ```
+2. **Utwórz osobny config produkcyjny** dla tej strony:
+   ```bash
+   cat > map_demo/js/config.hel.prod.js << 'EOF'
+   window.CONFIG = {
+     MAPBOX_TOKEN: "TWÓJ_PUBLICZNY_TOKEN_MAPBOX",        // ten sam co w prod
+     GEOJSON_URL: "./assets/geo/hel.geojson"             // ścieżka do nowych danych
+   };
+   EOF
+   ```
+3. **W `map_demo/mapa_hel.html` zaktualizuj ścieżkę do configu:**
+   ```html
+   <!-- było: <script src="./js/config.prod.js"></script> -->
+   <script src="./js/config.hel.prod.js"></script>
+   ```
+   
+   Opcjonalnie możesz nadpisać startowy widok dodając skrypt:
+   ```html
+   <script>
+     window.UI = Object.assign({}, window.UI, {
+       START_CENTER: [18.80, 54.60], START_ZOOM: 11
+     });
+   </script>
+   ```
+4. **Prześlij pliki na serwer:**
+   ```bash
+   gsutil cp map_demo/mapa_hel.html gs://maps-mapmaker-production-293411-demo/map_demo/mapa_hel.html
+   gsutil cp map_demo/js/config.hel.prod.js gs://maps-mapmaker-production-293411-demo/map_demo/js/config.hel.prod.js
+   gsutil cp map_demo/assets/geo/hel.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/hel.geojson
+
+   gsutil setmeta -h "Content-Type:text/html" gs://maps-mapmaker-production-293411-demo/map_demo/mapa_hel.html
+   gsutil setmeta -h "Content-Type:text/javascript" gs://maps-mapmaker-production-293411-demo/map_demo/js/config.hel.prod.js
+   ```
+5. **Nowy publiczny URL strony:**
+   ```
+   https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa_hel.html
+   ```
+6. **W Elementorze dodaj nowy iFrame** z tym adresem (dodaj `?v=20251001` dla uniknięcia problemów z cache).
+
+**Uwaga o bezpieczeństwie tokena:** token w `config.hel.prod.js` to ten sam publiczny token Mapbox co w `config.prod.js`. Upewnij się, że w Mapbox **Allowed URLs** masz dodany Twój bucket GCS (i ewentualnie domenę WordPress).
 
 ## 📜 Licencja
 
