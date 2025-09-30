@@ -209,6 +209,94 @@ Zaleca się utworzenie specjalnego tokena produkcyjnego w Mapbox Dashboard z ogr
   gsutil -m rsync -r -d /tmp/deploy/map_demo gs://$BUCKET/map_demo
   ```
 
+### Zarządzanie plikami w Google Cloud Storage
+
+#### Przeglądanie plików
+
+**W przeglądarce (konsola GCP):**
+1. Wejdź do **Cloud Console → Cloud Storage → Buckets (Przeglądarka)**
+2. Kliknij bucket **`maps-mapmaker-production-293411-demo`** (lub nazwę Twojego bucketa)
+3. Otwórz folder **`map_demo/`** – tam znajdują się wszystkie pliki (np. `mapa.html`, `js/`, `assets/`)
+
+**Z Cloud Shell (terminal):**
+```bash
+# lista na poziomie głównym bucketa
+gsutil ls gs://maps-mapmaker-production-293411-demo
+
+# rekursywnie cała zawartość map_demo/
+gsutil ls -r gs://maps-mapmaker-production-293411-demo/map_demo/**
+
+# szczegóły pojedynczego pliku (Content-Type, rozmiar, itp.)
+gsutil ls -L gs://maps-mapmaker-production-293411-demo/map_demo/js/config.prod.js
+```
+
+#### Publiczne URL-e
+
+**Strona główna:**  
+```
+https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html
+```
+
+**Pojedyncze pliki (przykłady):**
+```
+https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/js/app.js
+https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/assets/css/styles.css
+```
+
+#### Operacje na plikach
+
+**Pobranie pliku na Cloud Shell:**
+```bash
+gsutil cp gs://maps-mapmaker-production-293411-demo/map_demo/js/config.prod.js .
+```
+
+**Podmiana pliku na serwerze:**
+```bash
+gsutil cp map_demo/js/config.prod.js gs://maps-mapmaker-production-293411-demo/map_demo/js/config.prod.js
+```
+
+**Usunięcie pliku:**
+```bash
+gsutil rm gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
+```
+
+> **Uwaga:** katalog `/tmp/deploy/` jest tylko w Cloud Shell (tymczasowa kopia do wysyłki).  
+> Na serwerze (GCS) pliki są *wyłącznie* w buckecie pod `map_demo/`.
+
+### Aktualizacja plików po zmianach
+
+#### Scenariusz A — mała zmiana jednego pliku
+Przykład: zmiana `app.js`, `styles.css` albo `config.prod.js`.
+
+```bash
+# podmiana konkretnego pliku
+gsutil cp map_demo/js/app.js gs://maps-mapmaker-production-293411-demo/map_demo/js/app.js
+# (jeśli CSS)
+gsutil cp map_demo/assets/css/styles.css gs://maps-mapmaker-production-293411-demo/map_demo/assets/css/styles.css
+
+# ustaw poprawny MIME (gdy dotyczy)
+gsutil setmeta -h "Content-Type:text/javascript" gs://maps-mapmaker-production-293411-demo/map_demo/js/app.js
+gsutil setmeta -h "Content-Type:text/css" gs://maps-mapmaker-production-293411-demo/map_demo/assets/css/styles.css
+```
+
+> Jeśli przeglądarka trzyma starą wersję, dodaj parametr do iFrame: `...?v=YYYYMMDD` (np. `...?v=20251001`).
+
+#### Scenariusz B — większa zmiana (pełny redeploy)
+```bash
+/bin/rm -rf /tmp/deploy && mkdir -p /tmp/deploy && cp -r map_demo /tmp/deploy/
+sed -i 's#./js/config.local.js#./js/config.prod.js#g' /tmp/deploy/map_demo/mapa.html
+gsutil -m rsync -r -d /tmp/deploy/map_demo gs://maps-mapmaker-production-293411-demo/map_demo
+gsutil -m setmeta -h "Content-Type:text/javascript" gs://maps-mapmaker-production-293411-demo/map_demo/js/*.js
+gsutil -m setmeta -h "Content-Type:text/css" gs://maps-mapmaker-production-293411-demo/map_demo/assets/css/*.css
+```
+
+#### Scenariusz C — aktualizacja danych GeoJSON
+```bash
+gsutil cp map_demo/assets/geo/converted_map.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
+```
+
+**Wskazówka:** po aktualizacji dopisz parametr wersji w iFrame w Elementorze, np. `?v=20251001`.
+
 ## 📜 Licencja
 
 Projekt jest dostępny na licencji [MIT](LICENSE).
