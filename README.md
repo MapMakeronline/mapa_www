@@ -99,7 +99,6 @@ Projekt jest stale rozwijany. Ostatnio dodane funkcje:
 - Ujednolicony wygląd przycisków na pasku odtwarzania dla lepszej estetyki
 
 Plany na przyszłość:
-- Dodanie więcej szlaków i tras
 - Implementacja wyszukiwarki i filtrowania szlaków
 - Dodanie informacji o punktach POI wzdłuż trasy
 - Rozszerzenie statystyk dla szlaków (długość, przewyższenie, trudność)
