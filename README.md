@@ -291,11 +291,51 @@ gsutil -m setmeta -h "Content-Type:text/css" gs://maps-mapmaker-production-29341
 ```
 
 #### Scenariusz C — aktualizacja danych GeoJSON
-```bash
-gsutil cp map_demo/assets/geo/converted_map.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
-```
 
-**Wskazówka:** po aktualizacji dopisz parametr wersji w iFrame w Elementorze, np. `?v=20251001`.
+Aby zaktualizować dane mapy (trasy, punkty, itp.), należy:
+
+1. **Przygotować plik GeoJSON** - upewnij się, że plik jest poprawnie sformatowany w standardzie GeoJSON
+2. **Zastąpić istniejący plik** lokalnie w katalogu `/map_demo/assets/geo/`
+3. **Przesłać nowy plik na serwer**:
+   ```bash
+   gsutil cp map_demo/assets/geo/converted_map.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
+   ```
+
+##### Konfiguracja widoku mapy
+
+Po zmianie danych GeoJSON może być konieczna zmiana początkowego widoku mapy. Aby to zrobić:
+
+1. **Edytuj plik `js/config.ui.js`** - dostosuj parametry początkowego widoku mapy:
+   ```javascript
+   window.UI = {
+     LINE_COLOR: '#00FFFF',   // Kolor linii szlaku
+     LINE_WIDTH: 4,           // Grubość linii szlaku
+     FIT_PADDING: 60,         // Margines wokół szlaku przy dopasowaniu widoku
+     START_CENTER: [16.29, 50.77],  // Początkowy środek mapy [długość, szerokość]
+     START_ZOOM: 12,          // Początkowe przybliżenie
+     START_PITCH: 55,         // Początkowe nachylenie kamery
+     START_BEARING: 10        // Początkowy kierunek kamery
+   };
+   ```
+
+2. **Dostosuj kolorowanie szlaków** - kolory szlaków można dostosować w `LINE_COLOR` w pliku `config.ui.js` lub w funkcji `addGeoJsonLine` dla bardziej zaawansowanych przypadków, bazując na atrybutach w pliku GeoJSON.
+
+##### Testowanie i wdrażanie zmian
+
+1. **Testuj lokalnie** - sprawdź czy nowe dane wyświetlają się poprawnie
+2. **Wdroż zmiany** na serwer:
+   ```bash
+   # Prześlij zaktualizowany plik GeoJSON
+   gsutil cp map_demo/assets/geo/converted_map.geojson gs://maps-mapmaker-production-293411-demo/map_demo/assets/geo/converted_map.geojson
+   
+   # Jeśli zmieniłeś plik konfiguracyjny UI
+   gsutil cp map_demo/js/config.ui.js gs://maps-mapmaker-production-293411-demo/map_demo/js/config.ui.js
+   
+   # Jeśli zmieniłeś kod JS
+   gsutil cp map_demo/js/app.js gs://maps-mapmaker-production-293411-demo/map_demo/js/app.js
+   ```
+
+**Wskazówka:** po aktualizacji dopisz parametr wersji w iFrame w Elementorze, np. `?v=20251001`, aby zapobiec problemom z cache przeglądarki.
 
 ## 📜 Licencja
 
