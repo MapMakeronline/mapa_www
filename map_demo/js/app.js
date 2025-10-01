@@ -896,10 +896,13 @@ try{
       const hikingSrc2 = map.getSource('hiking');
       if(hikingSrc2){ hikingSrc2.setData(hikingData); await new Promise(res => map.once('idle', res)); }
     }catch(e){}
-    }
-
-  
-  
+    
+    // Przywróć widoczność warstw animacji
+    restoreAfterExport();
+    
+    // Dodatkowo wymuszamy przywrócenie cyjanowej linii
+    forceRestoreCyan();
+    
     // Resume animation if it was playing before export
     try{
       if(!_wasPaused && typeof requestAnimationFrame!=='undefined' && typeof window._rafFrame==='function'){
@@ -912,6 +915,7 @@ try{
         try{ animId = requestAnimationFrame(window._rafFrame); }catch(e){}
       }
     }catch(e){}
+    }
 const btnDownload = document.getElementById('btnDownload');
   if(btnDownload){
     btnDownload.addEventListener('click', async ()=>{
