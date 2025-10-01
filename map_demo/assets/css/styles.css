@@ -264,15 +264,55 @@
   
     /* Sidebar item highlighting */
     #list .item{
-      display:flex; gap:10px; align-items:center; padding:10px 12px;
+      display:flex; gap:15px; align-items:center; padding:10px;
       border-radius:12px; cursor:pointer;
       transition: background .15s ease, box-shadow .15s ease, transform .05s ease;
+      margin-bottom: 4px;
     }
     #list .item:hover{ background: rgba(255,255,255,.06); }
     #list .item.active{
       background: rgba(0,0,0,.35);
       box-shadow: inset 0 0 0 2px rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.25);
     }
+    
+    /* Trail image styling */
+    #list .item .trail-image {
+      width: 70px;
+      height: 70px;
+      flex: 0 0 70px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    
+    #list .item .trail-image img {
+      width: 130%;
+      height: 130%;
+      object-fit: cover;
+      position: absolute;
+      left: -15%;
+      top: -15%;
+      object-position: center;
+      transition: transform 0.3s ease;
+    }
+    
+    #list .item:hover .trail-image img {
+      transform: scale(1.1);
+    }
+    
+    #list .item.active .trail-image img {
+      transform: scale(1.15);
+    }
+    
+    /* Trail content styling */
+    #list .item .trail-content {
+      display: flex;
+      flex: 1;
+      gap: 10px;
+      align-items: center;
+    }
+    
     #list .item .sw{
       width:14px; height:14px; border-radius:50%;
       box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 0 4px rgba(255,255,255,.12) inset;
