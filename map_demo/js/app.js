@@ -464,7 +464,199 @@ async function addGeoJsonLine(map, {
     ctx.arcTo(x, y, x+w, y, rr);
     ctx.closePath();
   }
-  async function downloadCurrentRoute(){
+
+  // Funkcja do wyświetlania niestandardowego okna dialogowego
+  function showCustomModal({ title, message, confirmText = 'OK', cancelText = 'Anuluj', showCancel = true }) {
+    return new Promise(resolve => {
+      // Tworzenie elementów modalu
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-modal-overlay';
+      
+      const dialog = document.createElement('div');
+      dialog.className = 'custom-modal-dialog';
+      
+      const titleEl = document.createElement('div');
+      titleEl.className = 'custom-modal-title';
+      titleEl.textContent = title;
+      
+      const content = document.createElement('div');
+      content.className = 'custom-modal-content';
+      content.textContent = message;
+      
+      const buttons = document.createElement('div');
+      buttons.className = 'custom-modal-buttons';
+      
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'custom-modal-btn custom-modal-btn-primary';
+      confirmBtn.textContent = confirmText;
+      
+      let cancelBtn = null;
+      if (showCancel) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.className = 'custom-modal-btn custom-modal-btn-secondary';
+        cancelBtn.textContent = cancelText;
+        buttons.appendChild(cancelBtn);
+      }
+      
+      buttons.appendChild(confirmBtn);
+      
+      dialog.appendChild(titleEl);
+      dialog.appendChild(content);
+      dialog.appendChild(buttons);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      
+      // Funkcja do animowanego zamykania
+      function closeModal(result) {
+        overlay.classList.add('closing');
+        dialog.classList.add('closing');
+        setTimeout(() => {
+          document.body.removeChild(overlay);
+          resolve(result);
+        }, 250);
+      }
+      
+      // Obsługa przycisków
+      confirmBtn.addEventListener('click', () => closeModal(true));
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => closeModal(false));
+      }
+    });
+  }
+  
+  // Poprawna funkcja konwertująca GeoJSON do formatu KML z prawidłowymi tagami XML
+  function generateKMLFromGeoJSON(geojson, name) {
+    // Ekstrakcja współrzędnych
+    let coordsArray = [];
+    
+    if (geojson.type === 'Feature') {
+      if (geojson.geometry.type === 'LineString') {
+        coordsArray = geojson.geometry.coordinates;
+      } else if (geojson.geometry.type === 'MultiLineString') {
+        coordsArray = geojson.geometry.coordinates.flat();
+      }
+    } else if (geojson.type === 'LineString') {
+      coordsArray = geojson.coordinates;
+    } else if (geojson.type === 'MultiLineString') {
+      coordsArray = geojson.coordinates.flat();
+    }
+    
+    // Format KML: longitude,latitude,altitude (altitude opcjonalne)
+    const coordsString = coordsArray.map(coord => `${coord[0]},${coord[1]},0`).join('\n          ');
+    
+    // Tworzenie dokumentu KML
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${name || 'Trasa'}</name>
+    <Style id="routeStyle">
+      <LineStyle>
+        <color>ff00ffff</color> <!-- Format AABBGGRR (alfa, niebieski, zielony, czerwony) - to jest żółty -->
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    <Placemark>
+      <name>${name || 'Trasa'}</name>
+      <styleUrl>#routeStyle</styleUrl>
+      <LineString>
+        <coordinates>
+          ${coordsString}
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+  }
+  
+  // Stara funkcja konwertująca GeoJSON do formatu KML (do usunięcia)
+  function convertGeoJSONToKML(geojson, name) {
+    // Podstawowy template KML
+    const kmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${name || 'Trasa'}</name>
+    <Style id="routeStyle">
+      <LineStyle>
+        <color>ff00ffff</color> <!-- Format AABBGGRR (alfa, niebieski, zielony, czerwony) - to jest żółty -->
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    <Placemark>
+      <name>${name || 'Trasa'}</name>
+      <styleUrl>#routeStyle</styleUrl>
+      <LineString>
+        <coordinates>
+          ${getCoordinatesString(geojson)}
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+
+    return kmlTemplate;
+  }
+
+  // Pomocnicza funkcja do wyodrębnienia współrzędnych z GeoJSON
+  function getCoordinatesString(geojson) {
+    let coordsArray = [];
+
+    // Obsługa różnych typów GeoJSON
+    if (geojson.type === 'Feature') {
+      // Feature z geometrią
+      if (geojson.geometry.type === 'LineString') {
+        coordsArray = geojson.geometry.coordinates;
+      } else if (geojson.geometry.type === 'MultiLineString') {
+        // Łączymy wszystkie linie w jedną
+        coordsArray = geojson.geometry.coordinates.flat();
+      }
+    } else if (geojson.type === 'LineString') {
+      coordsArray = geojson.coordinates;
+    } else if (geojson.type === 'MultiLineString') {
+      coordsArray = geojson.coordinates.flat();
+    }
+
+    // Format KML: longitude,latitude,altitude (altitude opcjonalne)
+    return coordsArray.map(coord => `${coord[0]},${coord[1]},0`).join('\n          ');
+  }
+  
+  // Funkcja otwierająca trasę w Google Maps
+  function openRouteInGoogleMaps(geojson, name) {
+    try {
+      // Wybieramy punkty początkowy i końcowy trasy
+      let coords = [];
+      
+      if (geojson.type === 'Feature') {
+        if (geojson.geometry.type === 'LineString') {
+          coords = geojson.geometry.coordinates;
+        } else if (geojson.geometry.type === 'MultiLineString') {
+          coords = geojson.geometry.coordinates.flat();
+        }
+      } else if (geojson.type === 'LineString') {
+        coords = geojson.coordinates;
+      } else if (geojson.type === 'MultiLineString') {
+        coords = geojson.coordinates.flat();
+      }
+      
+      if (!coords || coords.length === 0) {
+        console.error("Nie udało się znaleźć współrzędnych trasy");
+        return;
+      }
+      
+      const startPoint = coords[0];
+      const endPoint = coords[coords.length - 1];
+
+      // Tworzymy URL Google Maps z trasą (od - do)
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${startPoint[1]},${startPoint[0]}&destination=${endPoint[1]},${endPoint[0]}&travelmode=walking`;
+      
+      // Otwieramy Google Maps w nowej karcie
+      window.open(googleMapsUrl, '_blank');
+    } catch (e) {
+      console.error("Błąd podczas otwierania Google Maps:", e);
+      alert("Nie udało się otworzyć trasy w Google Maps.");
+    }
+  }
+  
+  async function downloadCurrentRoute(format = 'kml'){
     
     // TEMP: pause animation during export to avoid race with RAF
     const _wasPaused = (typeof paused!=='undefined') ? paused : true;
@@ -498,6 +690,45 @@ async function addGeoJsonLine(map, {
     const name = currentItem.name || 'trasa';
     const color = osmcToColor(currentItem.osmc || currentItem._osmc);
     const distKm = turf.length(currentPath);
+    
+    // Jeśli wybrano format KML, konwertujemy i pobieramy KML
+    if (format === 'kml') {
+      // Generuj KML (używamy nowej funkcji z poprawnymi tagami XML)
+      const kmlContent = generateKMLFromGeoJSON(currentPath, name);
+      
+      // Utwórz plik do pobrania
+      const blob = new Blob([kmlContent], {type: 'application/vnd.google-earth.kml+xml'});
+      const url = URL.createObjectURL(blob);
+      
+      // Pobierz plik
+      const a = document.createElement('a');
+      const safe = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'');
+      a.download = `${safe||'trasa'}.kml`;
+      a.href = url;
+      a.click();
+      
+      // Zwolnij URL
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      
+      // Zapytaj użytkownika niestandardowym oknem dialogowym, czy chce otworzyć trasę w Google Maps
+      setTimeout(async () => {
+        const openInGoogleMaps = await showCustomModal({
+          title: 'Otworzyć w Google Maps?',
+          message: 'Plik KML został pobrany. Czy chcesz również otworzyć tę trasę w Google Maps?',
+          confirmText: 'Otwórz w Google Maps',
+          cancelText: 'Nie, dziękuję'
+        });
+        
+        if (openInGoogleMaps) {
+          openRouteInGoogleMaps(currentPath, name);
+        }
+      }, 500); // Krótkie opóźnienie, aby użytkownik najpierw zobaczył powiadomienie o pobraniu
+      
+      return;
+    }
+    
+    // Poniżej istniejący kod dla eksportu PNG
+    
     // Save current view and style props
     const prev = {
       center: map.getCenter(),
@@ -635,12 +866,22 @@ try{
     ctx.beginPath(); ctx.arc(x+cardW - padX - 8*dpr, y+cardH/2, 8*dpr, 0, Math.PI*2); ctx.fill();
 
     ctx.restore();
-// Download
+    // Download
     const a = document.createElement('a');
     const safe = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'');
     a.download = `${safe||'trasa'}.png`;
     a.href = canvas.toDataURL('image/png');
     a.click();
+    
+    // Pokaż powiadomienie o pobraniu
+    setTimeout(async () => {
+      await showCustomModal({
+        title: 'Pobieranie zakończone',
+        message: `Obraz PNG trasy "${name}" został pobrany.`,
+        confirmText: 'OK',
+        showCancel: false
+      });
+    }, 500);
     // Restore
     document.body.classList.remove('exporting');
     try{
@@ -673,7 +914,7 @@ try{
     }catch(e){}
 const btnDownload = document.getElementById('btnDownload');
   if(btnDownload){
-    btnDownload.addEventListener('click', ()=>{
+    btnDownload.addEventListener('click', async ()=>{
       // Pozwalamy na pobranie nawet jeśli currentItem został zresetowany, ale mamy aktywny indeks
       if(!currentItem && activeIdx !== null && activeIdx !== -1) {
         // Znajdź ostatnio aktywny element
@@ -681,11 +922,28 @@ const btnDownload = document.getElementById('btnDownload');
         if(lastItem) {
           // Tymczasowo ustaw currentItem aby pobranie zadziałało
           currentItem = lastItem;
-          downloadCurrentRoute();
+          
+          // Pokaż niestandardowy dialog wyboru formatu
+          const isKML = await showCustomModal({
+            title: 'Wybór formatu eksportu',
+            message: 'W jakim formacie chcesz pobrać trasę?',
+            confirmText: 'KML (Google Maps)',
+            cancelText: 'Obraz PNG'
+          });
+          
+          downloadCurrentRoute(isKML ? 'kml' : 'png');
           return;
         }
       } else if(currentItem) {
-        downloadCurrentRoute();
+        // Pokaż niestandardowy dialog wyboru formatu
+        const isKML = await showCustomModal({
+          title: 'Wybór formatu eksportu',
+          message: 'W jakim formacie chcesz pobrać trasę?',
+          confirmText: 'KML (Google Maps)',
+          cancelText: 'Obraz PNG'
+        });
+        
+        downloadCurrentRoute(isKML ? 'kml' : 'png');
       }
     });
   }
