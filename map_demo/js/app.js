@@ -95,6 +95,38 @@ async function addGeoJsonLine(map, {
   map.addSource('mapbox-dem', { type:'raster-dem', url:'mapbox://mapbox.terrain-rgb', tileSize:512, maxzoom:14 });
   map.setTerrain({ source:'mapbox-dem', exaggeration: 1.5 });
 
+  // Dodaj warstwę z granicami krajów
+  map.addSource('country-boundaries', {
+    type: 'vector',
+    url: 'mapbox://mapbox.country-boundaries-v1'
+  });
+  
+  // Dodaj warstwę z wypełnieniem granic (subtelne wypełnienie)
+  map.addLayer({
+    id: 'country-fill',
+    type: 'fill',
+    source: 'country-boundaries',
+    'source-layer': 'country_boundaries',
+    paint: {
+      'fill-color': 'rgba(200, 200, 200, 0.1)', // Prawie przezroczyste wypełnienie
+      'fill-outline-color': 'rgba(0, 0, 0, 0)'  // Bez konturu dla wypełnienia
+    }
+  });
+  
+  // Dodaj warstwę z liniami granic krajów
+  map.addLayer({
+    id: 'country-borders',
+    type: 'line',
+    source: 'country-boundaries',
+    'source-layer': 'country_boundaries',
+    paint: {
+      'line-color': '#ffffff',         // Biały kolor linii
+      'line-width': 2,                 // Szerokość linii
+      'line-opacity': 0.7,             // Półprzezroczysty
+      'line-dasharray': [3, 2]         // Linia przerywana dla lepszej widoczności
+    }
+  });
+
   // Render all hiking lines (kontekst)
   map.addSource('hiking', { type:'geojson', data: hikingData, lineMetrics:true });
   map.addLayer({
@@ -773,6 +805,7 @@ async function addGeoJsonLine(map, {
     }
     hideForExport('anim-line');
     hideForExport('progress-line');
+    hideForExport('country-boundaries');
 
 try{
       // Thicken lines for export
