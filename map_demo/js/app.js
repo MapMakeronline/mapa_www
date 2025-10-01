@@ -5,6 +5,8 @@ if (document.readyState === 'loading') {
   initApp();
 }
 
+// Funkcja getTrailImage została przeniesiona do pliku lib/trail-images.js
+
 function initApp() {
   // tu przenieś dotychczasową inicjalizację (mapboxgl.accessToken, new Map, itp.)
   mapboxgl.accessToken = window.CONFIG?.MAPBOX_TOKEN || '';
@@ -126,6 +128,26 @@ async function addGeoJsonLine(map, {
       'line-dasharray': [3, 2]         // Linia przerywana dla lepszej widoczności
     }
   });
+  
+  // Dodaj źródło danych dla granic administracyjnych (w tym miast)
+  map.addSource('admin-boundaries', {
+    type: 'vector',
+    url: 'mapbox://mapbox.boundaries-adm2-v3'  // Poziom adm2 zawiera granice miast/powiatów
+  });
+  
+  // Dodaj warstwę z granicami miast
+  map.addLayer({
+    id: 'city-borders',
+    type: 'line',
+    source: 'admin-boundaries',
+    'source-layer': 'boundaries_admin_2',
+    paint: {
+      'line-color': '#aaaaff',         // Jasnoniebieskie linie dla miast
+      'line-width': 1,                 // Cieńsze niż granice państw
+      'line-opacity': 0.5,             // Bardziej przezroczyste
+      'line-dasharray': [2, 1]         // Drobniejsza linia przerywana
+    }
+  });
 
   // Render all hiking lines (kontekst)
   map.addSource('hiking', { type:'geojson', data: hikingData, lineMetrics:true });
@@ -178,13 +200,80 @@ async function addGeoJsonLine(map, {
 
   items.sort((a,b) => a.name.localeCompare(b.name, 'pl'));
 
+  // Wypisz wszystkie nazwy szlaków do konsoli dla diagnostyki
+  console.log('============= LISTA WSZYSTKICH SZLAKÓW =============');
+  items.forEach(item => console.log(item.name));
+  console.log('===================================================');
+
   for (const item of items){
     const div = document.createElement('div');
     div.className = 'item';
     div.setAttribute('role','option');
     div.dataset.idx = String(item.idx);
-    div.innerHTML = `<span class="sw" style="background:${ item.osmc==='blue' ? '#06c' : item.osmc==='green' ? '#0a0' : item.osmc==='yellow' ? '#e3b000' : '#d00' }"></span>
-      <div><div class="name">${item.name}</div><div class="sub">${item.lenKm} km</div></div>`;
+    
+    // Tworzenie nazwy pliku ze zdjęciem na podstawie nazwy szlaku (slug)
+    const originalName = item.name;
+    
+    // Funkcja do zamiany polskich znaków na ich odpowiedniki ASCII
+    function replacePolishChars(str) {
+      const polishChars = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+        'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+      };
+      
+      return str.split('').map(char => polishChars[char] || char).join('');
+    }
+    
+    const trailSlug = replacePolishChars(item.name.toLowerCase())
+      .replace(/\s+/g, '-')           // Zamiana spacji na myślniki
+      .replace(/[^a-z0-9\-_]/g, '');  // Pozostawienie tylko małych liter, cyfr, myślników i podkreślników
+    
+    // Zawsze wypisuj do konsoli nazwy szlaków i odpowiadające im nazwy plików
+    // Dzięki temu będziesz wiedziała, jak nazwać pliki ze zdjęciami
+    console.log(`Szlak: "${originalName}" -> plik: "${trailSlug}.png" lub "${trailSlug}.jpg"`);
+    
+    // Szczegółowe debugowanie dla wybranych szlaków
+    if (originalName.includes('Barbarka') || originalName.includes('Pamięci') || 
+        originalName.includes('Henia') || originalName.includes('Borowa') || 
+        originalName.includes('Kozia') || originalName.includes('Przełęcz') ||
+        originalName.includes('PTTK') || originalName.includes('Dom wycieczkowy') ||
+        originalName.includes('Drabina') || originalName.includes('Wałbrzyska') ||
+        originalName.includes('Dworzec') || originalName.includes('Kolejowy') ||
+        originalName.includes('Jedlina') || originalName.includes('Zdrój') ||
+        originalName.includes('Szypka') || originalName.includes('Rusinowa') ||
+        originalName.includes('European') || originalName.includes('E3') ||
+        originalName.includes('Eisenach') || originalName.includes('Budapeszt') ||
+        originalName.includes('Glinik') || originalName.includes('Sobicin') || originalName.includes('Sobęcin') ||
+        originalName.includes('Internationaler') || originalName.includes('Bergwanderweg') ||
+        originalName.includes('Jałowiec') || originalName.includes('Jaowiec') || originalName.includes('Platforma') || 
+        originalName.includes('Widokowa') || originalName.includes('Dużyn') ||
+        originalName.includes('Kunice') || originalName.includes('Świdnickie') || originalName.includes('Chemiec') ||
+        originalName.includes('Podzamcze') || originalName.includes('Cis') || originalName.includes('Bolko') ||
+        originalName.includes('Rozdroże') || originalName.includes('Siodełko') || originalName.includes('Księżem') ||
+        originalName.includes('Stare') || originalName.includes('Bogaczowice') || originalName.includes('Wąwóz')) {
+      console.log('-----------------------------------');
+      console.log('SZCZEGÓŁY DLA WAŻNEGO SZLAKU:');
+      console.log('Nazwa szlaku:', originalName);
+      console.log('Slug szlaku:', trailSlug);
+      console.log('Pełna ścieżka PNG:', `assets/images/trails/${trailSlug}.png`);
+      console.log('-----------------------------------');
+    }
+    
+    // Domyślny obrazek jeśli zdjęcie szlaku nie istnieje
+    const defaultImage = 'assets/images/trails/default-trail.jpg';
+    
+    // Użyj funkcji getTrailImage z trail-images.js do pobrania ścieżki do zdjęcia szlaku
+    let trailImage = getTrailImage(item.name);
+    
+    div.innerHTML = `
+      <div class="trail-image">
+        <img src="${trailImage}" onerror="console.log('Błąd ładowania obrazu:', this.src); this.onerror=null; this.src='${defaultImage}';" alt="${item.name}">
+      </div>
+      <div class="trail-content">
+        <span class="sw" style="background:${ item.osmc==='blue' ? '#06c' : item.osmc==='green' ? '#0a0' : item.osmc==='yellow' ? '#e3b000' : '#d00' }"></span>
+        <div><div class="name">${item.name}</div><div class="sub">${item.lenKm} km</div></div>
+      </div>
+    `;
     list.appendChild(div);
   }
 
@@ -806,6 +895,7 @@ async function addGeoJsonLine(map, {
     hideForExport('anim-line');
     hideForExport('progress-line');
     hideForExport('country-boundaries');
+    hideForExport('city-borders');
 
 try{
       // Thicken lines for export
