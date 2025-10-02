@@ -61,10 +61,11 @@ function getTrailImage(trailName) {
     // Glinik i powiązane
     { 
       keywords: ['glinik', 'sobięcin', 'sobicin'],
-      exactMatch: ['sobięcin', 'sobicin'],
-      exclude: ['borowa'],
-      minKeywords: 2,
-      image: 'glinik-sobicin.png' 
+      image: 'glinik-sobięcin.png' 
+    },
+    { 
+      keywords: ['glinik - sobięcin', 'glinik - sobiecin'],
+      image: 'glinik-sobięcin.png' 
     },
     { 
       keywords: ['glinik', 'borowa'],
