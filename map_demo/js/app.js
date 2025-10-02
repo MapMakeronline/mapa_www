@@ -1322,3 +1322,290 @@ if (!window.CONFIG?.MAPBOX_TOKEN) {
   console.error('Brak MAPBOX_TOKEN w window.CONFIG. Uzupełnij w map_demo/js/config.local.js');
 }
 
+// Funkcjonalność wyszukiwarki
+document.addEventListener('DOMContentLoaded', () => {
+  const searchControl = document.getElementById('searchControl');
+  const searchToggleBtn = document.getElementById('searchToggleBtn');
+  const searchCloseBtn = document.getElementById('searchCloseBtn');
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  
+  // Jeśli brakuje któregoś elementu, zakończ inicjalizację
+  if (!searchControl || !searchToggleBtn || !searchCloseBtn || !searchInput || !searchResults) {
+    console.warn('Brak elementów wyszukiwarki w DOM');
+    return;
+  }
+  
+  // Otwieranie/zamykanie wyszukiwarki
+  searchToggleBtn.addEventListener('click', () => {
+    searchControl.classList.add('active');
+    setTimeout(() => {
+      searchInput.focus();
+    }, 300); // Opóźnienie równe czasowi animacji
+  });
+  
+  searchCloseBtn.addEventListener('click', () => {
+    closeSearch();
+  });
+  
+  // Zamknięcie po kliknięciu poza wyszukiwarką
+  document.addEventListener('click', (e) => {
+    if (searchControl && !searchControl.contains(e.target)) {
+      closeSearch();
+    }
+  });
+  
+  // Obsługa klawisza Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeSearch();
+    }
+  });
+  
+  // Obsługa wyszukiwania
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.trim();
+    if (query.length >= 2) {
+      performSearch(query);
+    } else {
+      hideResults();
+    }
+  });
+  
+  function closeSearch() {
+    searchControl.classList.remove('active');
+    searchControl.classList.remove('with-results');
+    searchInput.value = '';
+    hideResults();
+  }
+  
+  function hideResults() {
+    searchControl.classList.remove('with-results');
+    searchResults.innerHTML = '';
+  }
+  
+  function performSearch(query) {
+    // Symulacja opóźnienia zapytania
+    setTimeout(() => {
+      // W rzeczywistej implementacji tu będzie przeszukiwanie danych szlaków
+      const results = mockSearch(query);
+      displayResults(results, query);
+    }, 300);
+  }
+  
+  function mockSearch(query) {
+    // Przykładowe dane - docelowo należy połączyć to z rzeczywistymi danymi szlaków
+    // Ten kod należy zmodyfikować, aby korzystał z rzeczywistych danych aplikacji
+    const trailFeatures = window.geoData?.features || [];
+    
+    // Filtrowanie szlaków na podstawie wyszukiwanego tekstu
+    const trails = trailFeatures
+      .filter(feature => {
+        const properties = feature.properties || {};
+        const name = properties.name || '';
+        const description = properties.description || '';
+        
+        return name.toLowerCase().includes(query.toLowerCase()) || 
+               description.toLowerCase().includes(query.toLowerCase());
+      })
+      .map(feature => ({
+        id: feature.id || feature.properties.id,
+        type: 'trail',
+        name: feature.properties.name || 'Szlak bez nazwy',
+        description: feature.properties.description || 'Brak opisu'
+      }));
+    
+    // Dodanie mockowych danych dla innych typów (do późniejszego zastąpienia rzeczywistymi)
+    const mockAttractions = [
+      { id: 101, type: 'attraction', name: 'Zamek Książ', description: 'Imponujący zamek z XIII wieku' },
+      { id: 102, type: 'attraction', name: 'Palmiarnia', description: 'Egzotyczne rośliny w zabytkowym kompleksie' }
+    ].filter(item => 
+      item.name.toLowerCase().includes(query.toLowerCase()) || 
+      item.description.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    const mockViewpoints = [
+      { id: 201, type: 'viewpoint', name: 'Punkt widokowy Chełmiec', description: 'Panorama Wałbrzycha i okolic' },
+      { id: 202, type: 'viewpoint', name: 'Platforma widokowa Borowa', description: 'Widok na Góry Wałbrzyskie' }
+    ].filter(item => 
+      item.name.toLowerCase().includes(query.toLowerCase()) || 
+      item.description.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    return {
+      trails,
+      attractions: mockAttractions,
+      viewpoints: mockViewpoints
+    };
+  }
+  
+  function displayResults(results, query) {
+    const hasTrails = results.trails.length > 0;
+    const hasAttractions = results.attractions.length > 0;
+    const hasViewpoints = results.viewpoints.length > 0;
+    const hasResults = hasTrails || hasAttractions || hasViewpoints;
+    
+    searchResults.innerHTML = '';
+    
+    if (!hasResults) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          <p>Nie znaleziono wyników dla "${query}"</p>
+          <p>Spróbuj użyć innych słów kluczowych lub sprawdź pisownię.</p>
+        </div>
+      `;
+      searchControl.classList.add('with-results');
+      return;
+    }
+    
+    // Szlaki
+    if (hasTrails) {
+      const trailsGroup = document.createElement('div');
+      trailsGroup.className = 'search-result-group';
+      trailsGroup.innerHTML = `<h3 class="search-result-group-title">Szlaki</h3>`;
+      
+      results.trails.forEach(trail => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.setAttribute('data-id', trail.id);
+        item.setAttribute('data-type', 'trail');
+        
+        item.innerHTML = `
+          <div class="search-result-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 5.28l-2.54 3.82c-.21.31-.69.31-.89 0L11.5 10.6l-2.89 4.32c-.21.31-.69.31-.9 0L5 10.65V17h14V10.78z"></path>
+            </svg>
+          </div>
+          <div class="search-result-content">
+            <h4 class="search-result-title">${highlightQuery(trail.name, query)}</h4>
+            <p class="search-result-description">${highlightQuery(trail.description, query)}</p>
+          </div>
+        `;
+        
+        item.addEventListener('click', () => selectSearchResult(trail.id, 'trail'));
+        trailsGroup.appendChild(item);
+      });
+      
+      searchResults.appendChild(trailsGroup);
+    }
+    
+    // Atrakcje
+    if (hasAttractions) {
+      const attractionsGroup = document.createElement('div');
+      attractionsGroup.className = 'search-result-group';
+      attractionsGroup.innerHTML = `<h3 class="search-result-group-title">Atrakcje</h3>`;
+      
+      results.attractions.forEach(attraction => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.setAttribute('data-id', attraction.id);
+        item.setAttribute('data-type', 'attraction');
+        
+        item.innerHTML = `
+          <div class="search-result-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"></path>
+            </svg>
+          </div>
+          <div class="search-result-content">
+            <h4 class="search-result-title">${highlightQuery(attraction.name, query)}</h4>
+            <p class="search-result-description">${highlightQuery(attraction.description, query)}</p>
+          </div>
+        `;
+        
+        item.addEventListener('click', () => selectSearchResult(attraction.id, 'attraction'));
+        attractionsGroup.appendChild(item);
+      });
+      
+      searchResults.appendChild(attractionsGroup);
+    }
+    
+    // Punkty widokowe
+    if (hasViewpoints) {
+      const viewpointsGroup = document.createElement('div');
+      viewpointsGroup.className = 'search-result-group';
+      viewpointsGroup.innerHTML = `<h3 class="search-result-group-title">Punkty widokowe</h3>`;
+      
+      results.viewpoints.forEach(viewpoint => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.setAttribute('data-id', viewpoint.id);
+        item.setAttribute('data-type', 'viewpoint');
+        
+        item.innerHTML = `
+          <div class="search-result-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"></path>
+            </svg>
+          </div>
+          <div class="search-result-content">
+            <h4 class="search-result-title">${highlightQuery(viewpoint.name, query)}</h4>
+            <p class="search-result-description">${highlightQuery(viewpoint.description, query)}</p>
+          </div>
+        `;
+        
+        item.addEventListener('click', () => selectSearchResult(viewpoint.id, 'viewpoint'));
+        viewpointsGroup.appendChild(item);
+      });
+      
+      searchResults.appendChild(viewpointsGroup);
+    }
+    
+    searchControl.classList.add('with-results');
+  }
+  
+  // Podświetlanie wyszukiwanej frazy
+  function highlightQuery(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<strong>$1</strong>');
+  }
+  
+  // Wybór wyniku wyszukiwania
+  function selectSearchResult(id, type) {
+    console.log(`Selected: ${id} (${type})`);
+    
+    if (type === 'trail') {
+      // Znajdź szlak o podanym id i pokaż go na mapie
+      const trailFeature = (window.geoData?.features || []).find(feature => 
+        feature.id === id || feature.properties?.id === id
+      );
+      
+      if (trailFeature) {
+        // Jeśli mamy funkcję do wyświetlenia szlaku, użyj jej
+        if (window.selectTrail) {
+          window.selectTrail(trailFeature);
+        } else {
+          // Alternatywnie znajdź element listy szlaków i kliknij go
+          const trailElements = document.querySelectorAll('#list .item');
+          const matchingElement = Array.from(trailElements).find(el => 
+            el.getAttribute('data-id') === String(id)
+          );
+          
+          if (matchingElement) {
+            matchingElement.click();
+          }
+        }
+      }
+    } else if (type === 'attraction' || type === 'viewpoint') {
+      // Tu implementacja dla innych typów obiektów
+      // Na razie tylko centrowanie mapy na współrzędnych
+      const mockCoordinates = {
+        'attraction': { 101: [16.2933, 50.8428], 102: [16.2800, 50.8350] }, // Przykładowe koordynaty
+        'viewpoint': { 201: [16.2300, 50.7900], 202: [16.2100, 50.8000] }
+      };
+      
+      const coordinates = mockCoordinates[type]?.[id];
+      if (coordinates && window.map) {
+        window.map.flyTo({
+          center: coordinates,
+          zoom: 15,
+          essential: true
+        });
+      }
+    }
+    
+    closeSearch();
+  }
+});
+
