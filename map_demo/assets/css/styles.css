@@ -37,12 +37,22 @@
     .btn:disabled { opacity:.5; cursor:not-allowed; }
     /* progress bar removed */
   
-    /* Timeline slider */
+    /* Timeline slider - podstawowe style */
     #timelineWrap{
-      position:absolute; left:50%; bottom:26px; transform:translateX(-50%);
-      width:48%; z-index:5; display:none; align-items:center; gap:10px;
+      position:absolute; z-index:5; display:none; align-items:center; gap:10px;
       padding:8px 12px; border-radius:999px; background:rgba(0,0,0,.45);
       box-shadow:0 4px 16px rgba(0,0,0,.3); backdrop-filter: blur(6px);
+    }
+    
+    /* Pozycjonowanie na desktopie */
+    @media screen and (min-width: 1025px) {
+      #timelineWrap {
+        position:absolute !important; 
+        left:20px !important; 
+        bottom:26px !important; 
+        transform:none !important;
+        width:48%;
+      }
     }
     
     /* Ujednolicone style dla przycisków i kontrolek na pasku odtwarzania */
