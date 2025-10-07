@@ -28,6 +28,31 @@ class RouteExporter {
   }
 
   /**
+   * Metoda logowania z prefiksem
+   */
+  log(message, level = 'info') {
+    const prefix = '[RouteExporter]';
+    switch (level) {
+      case 'error':
+        console.error(prefix, message);
+        break;
+      case 'warn':
+        console.warn(prefix, message);
+        break;
+      default:
+        console.log(prefix, message);
+    }
+  }
+
+  /**
+   * Pokazuje błąd użytkownikowi
+   */
+  showError(message, error = null) {
+    this.log(`${message}: ${error ? error.message : 'Nieznany błąd'}`, 'error');
+    alert(`${message}\n\nSzczegóły błędu: ${error ? error.message : 'Nieznany błąd'}`);
+  }
+
+  /**
    * Główna funkcja eksportu trasy
    * @param {Object} geojson - Dane GeoJSON trasy
    * @param {string} name - Nazwa trasy
@@ -142,45 +167,252 @@ class RouteExporter {
         throw new Error('Mapa nie jest dostępna');
       }
       
-      // Poczekaj na załadowanie wszystkich warstw mapy
-      await new Promise((resolve) => {
-        if (window.map.loaded()) {
-          resolve();
-        } else {
-          window.map.once('load', resolve);
+      // Sprawdź czy mamy wymagane dane globalne
+      if (!window.currentItem || !window.currentPath) {
+        throw new Error('Brak danych trasy (currentItem lub currentPath)');
+      }
+      
+      const map = window.map;
+      const currentItem = window.currentItem;
+      const currentPath = window.currentPath;
+      if (!window.turf) {
+        throw new Error('Biblioteka Turf.js nie jest dostępna');
+      }
+      const turf = window.turf;
+      
+      this.log('Rozpoczynam zaawansowany eksport PNG...');
+      
+      // === ORYGINALNY KOD PNG EXPORT Z app.js ===
+      
+      // Save current view and style props
+      const prev = {
+        center: map.getCenter(),
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+        casing: map.getPaintProperty('hiking-casing','line-width'),
+        colorW: map.getPaintProperty('hiking-color','line-width'),
+        progW: (map.getLayer('progress-line') ? map.getPaintProperty('progress-line','line-width') : null)
+      };
+      
+      // Fit to bbox of current path (portrait/landscape padding)
+      const bb = turf.bbox(currentPath); // [w,s,e,n]
+      const width = map.getCanvas().width, height = map.getCanvas().height;
+      const pad = Math.round(Math.min(width, height) * 0.08);
+      
+      // --- Only selected route on export ---
+      const hikingSrc = map.getSource('hiking');
+      const restoreHiking = !!hikingSrc;
+      let originalHikingData = null;
+      
+      if(restoreHiking){
+        try{
+          // Zapisz oryginalne dane źródła
+          originalHikingData = hikingSrc._data;
+          const singleFC = { type:'FeatureCollection', features:[ currentItem.f ] };
+          hikingSrc.setData(singleFC);
+          await new Promise(res => map.once('idle', res));
+        }catch(e){ /* ignore */ }
+      }
+      
+      // --- Hide animated progress ONLY for export ---
+      const restoreVisibility = {};
+      function hideForExport(id){
+        if(map.getLayer(id)){
+          try{
+            restoreVisibility[id] = map.getLayoutProperty(id, 'visibility') || 'visible';
+            map.setLayoutProperty(id, 'visibility', 'none');
+          }catch(e){}
         }
-      });
-      
-      // Poczekaj aż mapa będzie bezczynna (wszystkie dane załadowane)
-      await new Promise((resolve) => {
-        if (window.map.isSourceLoaded('composite')) {
-          resolve();
-        } else {
-          window.map.once('idle', resolve);
+      }
+      function restoreAfterExport(){
+        for(const id in restoreVisibility){
+          try{ map.setLayoutProperty(id, 'visibility', restoreVisibility[id] || 'visible'); }catch(e){}
         }
-      });
+      }
+      hideForExport('anim-line');
+      hideForExport('progress-line');
+      hideForExport('country-boundaries');
+      hideForExport('city-borders');
+
+      try{
+        // Thicken lines for export
+        map.setPaintProperty('hiking-casing','line-width', 6);
+        map.setPaintProperty('hiking-color','line-width', 4.5);
+        if(map.getLayer('progress-line')) map.setPaintProperty('progress-line','line-width', 8);
+      }catch(e){}
       
-      // Uzyskaj canvas mapy
-      const canvas = window.map.getCanvas();
+      document.body.classList.add('exporting');
       
-      // Konwertuj na DataURL
-      const dataURL = canvas.toDataURL('image/png', 1.0);
+      // Ensure north-up, flat, and fit
+      map.easeTo({bearing:0, pitch:0, duration:0});
+      map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: pad, duration: 0 });
+      await new Promise(res => map.once('idle', res));
       
-      // Utwórz link do pobrania
+      // Compose image
+      const dpr = window.devicePixelRatio || 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = map.getCanvas().width;
+      canvas.height = map.getCanvas().height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(map.getCanvas(), 0, 0);
+      
+      // Get color and distance for label
+      const color = window.osmcToColor ? window.osmcToColor(currentItem.osmc || currentItem._osmc) : '#FF0000';
+      const distKm = turf.length(currentPath);
+      
+      // Label card (short, multi-line wrapping)  
+      const margin = 18*dpr;
+      const x = margin, y = margin;
+      const padX = 18*dpr, padY = 16*dpr, gap = 12*dpr, swatchW = 20*dpr;
+
+      const titleFont = `${20*dpr}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+      const subFont   = `${15*dpr}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+      const lineH     = 22*dpr;
+      const subLineH  = 18*dpr;
+      const maxCardW  = Math.min(canvas.width*0.45, 380*dpr);
+      const minCardW  = 260*dpr;
+      const innerMax  = maxCardW - (padX*2 + gap + swatchW);
+
+      function wrapText(ctx, text, maxW, maxLines=3){
+        if(!text) return [''];
+        const words = String(text).split(/\s+/);
+        const lines = [];
+        let line = '';
+        ctx.font = titleFont;
+        for(const w of words){
+          const test = line ? line + ' ' + w : w;
+          if(ctx.measureText(test).width <= maxW){
+            line = test;
+          }else{
+            if(line) lines.push(line);
+            line = w;
+            if(lines.length === maxLines-1){
+              while(ctx.measureText(line + '…').width > maxW && line.length>1){
+                line = line.slice(0,-1);
+              }
+              lines.push(line + '…');
+              return lines;
+            }
+          }
+        }
+        if(line) lines.push(line);
+        return lines.slice(0, maxLines);
+      }
+
+      function drawRoundedRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+
+      const ctxMeasure = canvas.getContext('2d');
+      const titleLines = wrapText(ctxMeasure, name, innerMax, 3);
+      ctxMeasure.font = titleFont;
+      const longest = titleLines.reduce((w,t)=>Math.max(w, ctxMeasure.measureText(t).width), 0);
+
+      ctxMeasure.font = subFont;
+      const distText = `${distKm.toFixed(2)} km`;
+      const distW = ctxMeasure.measureText(distText).width;
+
+      const textW = Math.max(longest, distW);
+      const cardW = Math.max(minCardW, Math.min(maxCardW, padX*2 + textW + gap + swatchW));
+      const cardH = padY*2 + titleLines.length*lineH + 10*dpr + subLineH;
+
+      // Draw card
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.96)';
+      drawRoundedRect(ctx, x, y, cardW, cardH, 12*dpr);
+      ctx.fill();
+
+      // Title lines
+      ctx.fillStyle = '#111';
+      ctx.font = titleFont;
+      for(let i=0;i<titleLines.length;i++){
+        ctx.fillText(titleLines[i], x+padX, y+padY + (i+0.8)*lineH);
+      }
+      // Distance
+      ctx.font = subFont;
+      ctx.fillText(distText, x+padX, y+padY + titleLines.length*lineH + 12*dpr);
+
+      // Color swatch (right side)
+      ctx.fillStyle = color;
+      ctx.beginPath(); 
+      ctx.arc(x+cardW - padX - 8*dpr, y+cardH/2, 8*dpr, 0, Math.PI*2); 
+      ctx.fill();
+
+      ctx.restore();
+      
+      // Download
+      const safe = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'');
+      const filename = `${safe||'trasa'}.png`;
+      const dataURL = canvas.toDataURL('image/png');
+      
       const link = document.createElement('a');
-      link.download = `${name}.png`;
+      link.download = filename;
       link.href = dataURL;
-      
-      // Dodaj do dokumentu, kliknij i usuń
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      this.log(`PNG wyeksportowany pomyślnie: ${name}.png`);
-      return { success: true, filename: `${name}.png` };
+      // Restore
+      document.body.classList.remove('exporting');
+      try{
+        map.setPaintProperty('hiking-casing','line-width', prev.casing);
+        map.setPaintProperty('hiking-color','line-width', prev.colorW);
+        if(map.getLayer('progress-line') && prev.progW!=null) map.setPaintProperty('progress-line','line-width', prev.progW);
+      }catch(e){}
+      map.easeTo({ center: prev.center, zoom: prev.zoom, pitch: prev.pitch, bearing: prev.bearing, duration: 0 });
+    
+      // Restore full routes on map
+      try{
+        const hikingSrc2 = map.getSource('hiking');
+        if(hikingSrc2 && originalHikingData){ 
+          hikingSrc2.setData(originalHikingData); 
+          await new Promise(res => map.once('idle', res)); 
+        } else if(hikingSrc2 && window.hikingData) {
+          // Fallback do window.hikingData jeśli jest dostępne
+          hikingSrc2.setData(window.hikingData); 
+          await new Promise(res => map.once('idle', res)); 
+        }
+      }catch(e){}
+      
+      // Restore visibility
+      restoreAfterExport();
+      
+      // Force restore cyan line if function exists
+      if (typeof window.forceRestoreCyan === 'function') {
+        window.forceRestoreCyan();
+      }
+      
+      this.log(`PNG wyeksportowany pomyślnie: ${filename}`);
+      
+      // Show success notification
+      if (window.showCustomModal) {
+        setTimeout(async () => {
+          await window.showCustomModal({
+            title: 'Pobieranie zakończone',
+            message: `Obraz PNG trasy "${name}" został pobrany.`,
+            confirmText: 'OK',
+            showCancel: false
+          });
+        }, 500);
+      }
+      
+      return { success: true, filename: filename };
       
     } catch (error) {
       this.log(`Błąd eksportu PNG: ${error.message}`, 'error');
+      console.error('Szczegóły błędu PNG:', error);
       this.showError('Nie udało się wyeksportować obrazu PNG', error);
       throw error;
     }

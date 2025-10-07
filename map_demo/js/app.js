@@ -19,12 +19,15 @@ const map = new mapboxgl.Map({
   center: window.UI?.START_CENTER || [16.29, 50.77],
   zoom: window.UI?.START_ZOOM ?? 12,
   pitch: window.UI?.START_PITCH ?? 55,
-  bearing: window.UI?.START_BEARING ?? 10
+  bearing: window.UI?.START_BEARING ?? 10,
+  preserveDrawingBuffer: true  // Niezbędne dla eksportu PNG
 });
 map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}), 'top-right');
 
-// Udostępnij mapę globalnie dla modułów
+// Udostępnij mapę i dane globalnie dla modułów
 window.map = map;
+window.hikingData = hikingData;
+// turf jest już globalnie dostępny z CDN
 
 function featureName(f, idx){
   const p = f.properties || {};
@@ -578,6 +581,9 @@ async function addGeoJsonLine(map, {
       default: return '#56B4E9'; // fallback
     }
   }
+  
+  // Udostępnij globalnie dla modułów
+  window.osmcToColor = osmcToColor;
   function drawRoundedRect(ctx, x, y, w, h, r){
     const rr = Math.min(r, w/2, h/2);
     ctx.beginPath();
@@ -741,6 +747,9 @@ async function addGeoJsonLine(map, {
       }
     }catch(e){ /* noop */ }
   }
+  
+  // Udostępnij globalnie dla modułów eksportu
+  window.forceRestoreCyan = forceRestoreCyan;
 
   // Animation infra
   let animId = null, startTime = null;

@@ -13,14 +13,23 @@ let routeExporter = null;
  * Inicjalizuje moduł eksportu tras
  */
 function initializeRouteExporter() {
+  console.log('Próba inicjalizacji RouteExporter...');
+  console.log('typeof RouteExporter:', typeof RouteExporter);
+  
   if (typeof RouteExporter === 'undefined') {
     console.error('RouteExporter nie jest załadowany. Sprawdź czy plik route-export.js został dołączony.');
+    console.error('Dostępne globalne obiekty:', Object.keys(window).filter(k => k.includes('Route')));
     return false;
   }
   
-  routeExporter = new RouteExporter();
-  console.log('RouteExporter zainicjalizowany pomyślnie');
-  return true;
+  try {
+    routeExporter = new RouteExporter();
+    console.log('RouteExporter zainicjalizowany pomyślnie');
+    return true;
+  } catch (error) {
+    console.error('Błąd podczas tworzenia instancji RouteExporter:', error);
+    return false;
+  }
 }
 
 /**
@@ -29,8 +38,11 @@ function initializeRouteExporter() {
  */
 async function downloadCurrentRouteNew(format = 'kml', context = {}) {
   try {
+    console.log(`=== Rozpoczynam eksport ${format} ===`);
+    
     // Sprawdź czy moduł jest zainicjalizowany
     if (!routeExporter) {
+      console.log('RouteExporter nie jest zainicjalizowany, próbuję zainicjalizować...');
       if (!initializeRouteExporter()) {
         throw new Error('Nie udało się zainicjalizować modułu eksportu');
       }
@@ -50,6 +62,15 @@ async function downloadCurrentRouteNew(format = 'kml', context = {}) {
     
     // Pokaż powiadomienie o rozpoczęciu eksportu
     console.log(`Rozpoczynam eksport trasy "${currentItem.properties?.name || currentItem.name || 'Nieznana trasa'}" do formatu ${format.toUpperCase()}`);
+    
+    // Debug info dla PNG
+    if (format.toLowerCase() === 'png') {
+      console.log('PNG Export Debug Info:');
+      console.log('- currentPath:', currentPath);
+      console.log('- currentItem:', currentItem);
+      console.log('- map:', map);
+      console.log('- map.getCanvas():', map ? map.getCanvas() : 'brak mapy');
+    }
     
     // Wykonaj eksport
     const result = await routeExporter.exportRoute(
@@ -72,8 +93,14 @@ async function downloadCurrentRouteNew(format = 'kml', context = {}) {
     console.error('Błąd podczas eksportu trasy:', error);
     
     // Fallback do starej funkcji w przypadku błędu
-    console.warn('Używam fallback do starej funkcji downloadCurrentRoute');
-    return downloadCurrentRouteOriginal(format);
+    if (typeof downloadCurrentRouteOriginal === 'function') {
+      console.warn('Używam fallback do starej funkcji downloadCurrentRoute');
+      return downloadCurrentRouteOriginal(format);
+    } else {
+      // Jeśli nie ma fallback, pokaż błąd użytkownikowi
+      alert(`Błąd podczas eksportu ${format.toUpperCase()}: ${error.message}`);
+      throw error;
+    }
   }
 }
 

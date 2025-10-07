@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test PNG Export</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.js"></script>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #map { width: 100%; height: 400px; margin: 20px 0; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        #log { background: #f0f0f0; padding: 10px; margin: 20px 0; min-height: 100px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Test PNG Export</h1>
+    <div id="map"></div>
+    <button onclick="testPNGExport()">Testuj PNG Export</button>
+    <button onclick="clearLog()">Wyczyść log</button>
+    <div id="log"></div>
+
+    <script src="map_demo/js/lib/route-export.js"></script>
+    <script>
+        let map;
+        let routeExporter;
+        
+        // Inicjalizacja mapy
+        mapboxgl.accessToken = 'pk.eyJ1IjoicmFmYWx3byIsImEiOiJjbTEzaWxjZDQxMGx3MmpzYXU1aGFqbmJrIn0.qiZ9PpXGGrLMTKr11MdT4w';
+        
+        map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/outdoors-v12',
+            center: [16.2, 50.8],
+            zoom: 10,
+            preserveDrawingBuffer: true  // Ważne dla PNG export!
+        });
+        
+        // Czekaj na załadowanie mapy
+        map.on('load', () => {
+            log('Mapa załadowana');
+            
+            // Dodaj przykładową trasę
+            map.addSource('test-route', {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'properties': {},
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': [
+                            [16.1, 50.7],
+                            [16.2, 50.8],
+                            [16.3, 50.9]
+                        ]
+                    }
+                }
+            });
+            
+            map.addLayer({
+                'id': 'test-route',
+                'type': 'line',
+                'source': 'test-route',
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-color': '#ff0000',
+                    'line-width': 3
+                }
+            });
+            
+            // Inicjalizuj RouteExporter
+            routeExporter = new RouteExporter();
+            log('RouteExporter zainicjalizowany');
+        });
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        async function testPNGExport() {
+            log('=== Rozpoczynam test PNG Export ===');
+            
+            try {
+                // Test 1: Sprawdź dostępność mapy
+                log('Test 1: Sprawdzanie mapy...');
+                if (!map) {
+                    throw new Error('Mapa nie jest dostępna');
+                }
+                log('✓ Mapa dostępna');
+                
+                // Test 2: Sprawdź canvas
+                log('Test 2: Sprawdzanie canvas...');
+                const canvas = map.getCanvas();
+                if (!canvas) {
+                    throw new Error('Canvas nie jest dostępny');
+                }
+                log('✓ Canvas dostępny: ' + canvas.width + 'x' + canvas.height);
+                
+                // Test 3: Sprawdź czy preserveDrawingBuffer jest włączone
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const preserveDrawingBuffer = gl.getContextAttributes().preserveDrawingBuffer;
+                    log('✓ PreserveDrawingBuffer: ' + preserveDrawingBuffer);
+                }
+                
+                // Test 4: Sprawdź RouteExporter
+                log('Test 4: Sprawdzanie RouteExporter...');
+                if (!routeExporter) {
+                    throw new Error('RouteExporter nie jest dostępny');
+                }
+                log('✓ RouteExporter dostępny');
+                
+                // Test 5: Spróbuj bezpośrednio z canvas
+                log('Test 5: Bezpośredni export z canvas...');
+                const dataURL = canvas.toDataURL('image/png');
+                if (!dataURL || dataURL === 'data:,') {
+                    throw new Error('Canvas.toDataURL zwrócił pusty wynik');
+                }
+                log('✓ Canvas.toDataURL działa, długość: ' + dataURL.length);
+                
+                // Test 6: Pełny test przez RouteExporter
+                log('Test 6: Export przez RouteExporter...');
+                
+                const testGeoJSON = {
+                    'type': 'Feature',
+                    'properties': { 'name': 'Test Route' },
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': [
+                            [16.1, 50.7],
+                            [16.2, 50.8],
+                            [16.3, 50.9]
+                        ]
+                    }
+                };
+                
+                window.map = map; // Ustaw globalną mapę
+                
+                const result = await routeExporter.exportToPNG(testGeoJSON, 'test-route');
+                log('✓ Export zakończony: ' + JSON.stringify(result));
+                
+            } catch (error) {
+                log('❌ Błąd: ' + error.message);
+                console.error('Pełny błąd:', error);
+            }
+        }
+    </script>
+</body>
+</html>
