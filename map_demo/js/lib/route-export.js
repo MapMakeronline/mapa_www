@@ -64,28 +64,44 @@ class RouteExporter {
         throw new Error('Brak współrzędnych do eksportu');
       }
 
-      // Sprawdź czy użytkownik chce multi-modal routing
-      const includeUserLocation = options.includeUserLocation !== false;
+      // Pobierz lokalizację użytkownika
       let userLocation = null;
+      let addDriving = false;
+      let filename = name;
       
-      if (includeUserLocation) {
-        try {
-          userLocation = await this.getCurrentUserLocation();
-        } catch (error) {
-          console.warn('Nie udało się uzyskać lokalizacji użytkownika:', error);
+      try {
+        userLocation = await this.getCurrentUserLocation();
+        
+        // Zapytaj użytkownika czy chce dodać dojazd
+        const modalFn = options.showCustomModal || (typeof window !== 'undefined' && window.showCustomModal);
+        if (typeof modalFn === 'function') {
+          addDriving = await modalFn({
+            title: 'Typ pliku KML',
+            message: `Czy chcesz wygenerować KML z dojazdem samochodem z Twojej aktualnej lokalizacji do szlaku "${name}"?`,
+            confirmText: 'Tak, z dojazdem',
+            cancelText: 'Nie, tylko szlak'
+          });
+          
+          if (addDriving) {
+            filename = `${name}_z_dojazdem`;
+          }
         }
+      } catch (error) {
+        console.warn('Nie udało się uzyskać lokalizacji użytkownika:', error);
       }
 
       // Generuj KML
-      const kmlContent = this.generateKMLContent(coords, name, userLocation, options);
+      const kmlContent = addDriving && userLocation ? 
+        this.generateMultiStageKMLContent(coords, name, userLocation, options) :
+        this.generateKMLContent(coords, name, null, options);
       
       // Pobierz plik
-      this.downloadFile(kmlContent, `${name}.kml`, 'application/vnd.google-earth.kml+xml');
+      this.downloadFile(kmlContent, `${filename}.kml`, 'application/vnd.google-earth.kml+xml');
       
       // Opcjonalnie otwórz w Google Maps
-      await this.offerGoogleMapsIntegration(geojson, name, userLocation, options.showCustomModal);
+      await this.offerGoogleMapsIntegration(geojson, name, addDriving ? userLocation : null, options.showCustomModal);
       
-      return { success: true, format: 'kml', filename: `${name}.kml` };
+      return { success: true, format: 'kml', filename: `${filename}.kml` };
       
     } catch (error) {
       console.error('Błąd eksportu KML:', error);
@@ -118,9 +134,56 @@ class RouteExporter {
    * Eksport do formatu PNG (screenshot mapy)
    */
   async exportToPNG(geojson, name, options = {}) {
-    // Ta funkcja będzie implementowana w przyszłości
-    // lub może być przekazana z głównej aplikacji
-    throw new Error('Eksport PNG nie jest jeszcze zaimplementowany w tym module');
+    this.log(`Eksportowanie mapy jako PNG: ${name}`);
+    
+    try {
+      // Sprawdź czy mapa jest dostępna
+      if (!window.map || !window.map.getCanvas) {
+        throw new Error('Mapa nie jest dostępna');
+      }
+      
+      // Poczekaj na załadowanie wszystkich warstw mapy
+      await new Promise((resolve) => {
+        if (window.map.loaded()) {
+          resolve();
+        } else {
+          window.map.once('load', resolve);
+        }
+      });
+      
+      // Poczekaj aż mapa będzie bezczynna (wszystkie dane załadowane)
+      await new Promise((resolve) => {
+        if (window.map.isSourceLoaded('composite')) {
+          resolve();
+        } else {
+          window.map.once('idle', resolve);
+        }
+      });
+      
+      // Uzyskaj canvas mapy
+      const canvas = window.map.getCanvas();
+      
+      // Konwertuj na DataURL
+      const dataURL = canvas.toDataURL('image/png', 1.0);
+      
+      // Utwórz link do pobrania
+      const link = document.createElement('a');
+      link.download = `${name}.png`;
+      link.href = dataURL;
+      
+      // Dodaj do dokumentu, kliknij i usuń
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      this.log(`PNG wyeksportowany pomyślnie: ${name}.png`);
+      return { success: true, filename: `${name}.png` };
+      
+    } catch (error) {
+      this.log(`Błąd eksportu PNG: ${error.message}`, 'error');
+      this.showError('Nie udało się wyeksportować obrazu PNG', error);
+      throw error;
+    }
   }
 
   /**
@@ -252,6 +315,127 @@ class RouteExporter {
     kmlContent += `</coordinates>
       </LineString>
     </Placemark>
+  </Document>
+</kml>`;
+    
+    return kmlContent;
+  }
+
+  /**
+   * Generuje wieloetapowy KML z dojazdem samochodem + szlak pieszy
+   */
+  generateMultiStageKMLContent(coords, name, userLocation, options = {}) {
+    const { lineColor = this.config.kml.defaultLineColor, 
+            lineWidth = this.config.kml.defaultLineWidth } = options;
+    
+    const trailStart = coords[0];
+    const trailEnd = coords[coords.length - 1];
+    
+    const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${this.escapeXML(name)} - Pełna podróż</name>
+    <description>Wieloetapowa trasa: dojazd samochodem + szlak pieszy</description>
+    
+    <!-- Style dla różnych segmentów -->
+    <Style id="drivingStyle">
+      <LineStyle>
+        <color>ff0000ff</color> <!-- Czerwony dla dojazdu samochodem -->
+        <width>5</width>
+      </LineStyle>
+    </Style>
+    
+    <Style id="walkingStyle">
+      <LineStyle>
+        <color>ff00ff00</color> <!-- Zielony dla szlaku pieszego -->
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    
+    <Style id="startPoint">
+      <IconStyle>
+        <color>ff00ff00</color>
+        <scale>1.2</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    
+    <Style id="trailStartPoint">
+      <IconStyle>
+        <color>ff0000ff</color>
+        <scale>1.1</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    
+    <Style id="endPoint">
+      <IconStyle>
+        <color>ffff0000</color>
+        <scale>1.2</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    
+    <!-- Punkty oznaczające -->
+    <Placemark>
+      <name>🚗 Start - Twoja lokalizacja</name>
+      <description>Punkt początkowy podróży (dojazd samochodem)</description>
+      <styleUrl>#startPoint</styleUrl>
+      <Point>
+        <coordinates>${userLocation.longitude},${userLocation.latitude},0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <Placemark>
+      <name>🅿️ Parking - Początek szlaku "${this.escapeXML(name)}"</name>
+      <description>Tu zostawiasz samochód i zaczynasz wędrówkę pieszo</description>
+      <styleUrl>#trailStartPoint</styleUrl>
+      <Point>
+        <coordinates>${trailStart[0]},${trailStart[1]},0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <Placemark>
+      <name>🎯 Meta - Koniec szlaku "${this.escapeXML(name)}"</name>
+      <description>Meta wędrówki pieszej</description>
+      <styleUrl>#endPoint</styleUrl>
+      <Point>
+        <coordinates>${trailEnd[0]},${trailEnd[1]},0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <!-- Linia dojazdu (orientacyjna) -->
+    <Placemark>
+      <name>Dojazd samochodem</name>
+      <description>Użyj nawigacji samochodowej, aby dojechać z punktu startowego do początku szlaku. Ta linia jest tylko orientacyjna - użyj rzeczywistej nawigacji drogowej.</description>
+      <styleUrl>#drivingStyle</styleUrl>
+      <LineString>
+        <coordinates>
+          ${userLocation.longitude},${userLocation.latitude},0
+          ${trailStart[0]},${trailStart[1]},0
+        </coordinates>
+      </LineString>
+    </Placemark>
+    
+    <!-- Szlak pieszy -->
+    <Placemark>
+      <name>Szlak pieszy - ${this.escapeXML(name)}</name>
+      <description>Trasa wędrówki pieszej</description>
+      <styleUrl>#walkingStyle</styleUrl>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>
+${coords.map(coord => `          ${coord[0]},${coord[1]},0`).join('\n')}
+        </coordinates>
+      </LineString>
+    </Placemark>
+    
   </Document>
 </kml>`;
     
