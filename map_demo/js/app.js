@@ -23,6 +23,9 @@ const map = new mapboxgl.Map({
 });
 map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}), 'top-right');
 
+// Udostępnij mapę globalnie dla modułów
+window.map = map;
+
 function featureName(f, idx){
   const p = f.properties || {};
   return p.name || p.ref || ('szlak ' + (idx+1));
@@ -644,670 +647,42 @@ async function addGeoJsonLine(map, {
       }
     });
   }
-  
-  // Poprawna funkcja konwertująca GeoJSON do formatu KML z prawidłowymi tagami XML
-  function generateKMLFromGeoJSON(geojson, name) {
-    // Ekstrakcja współrzędnych
-    let coordsArray = [];
-    
-    if (geojson.type === 'Feature') {
-      if (geojson.geometry.type === 'LineString') {
-        coordsArray = geojson.geometry.coordinates;
-      } else if (geojson.geometry.type === 'MultiLineString') {
-        coordsArray = geojson.geometry.coordinates.flat();
-      }
-    } else if (geojson.type === 'LineString') {
-      coordsArray = geojson.coordinates;
-    } else if (geojson.type === 'MultiLineString') {
-      coordsArray = geojson.coordinates.flat();
-    }
-    
-    // Format KML: longitude,latitude,altitude (altitude opcjonalne)
-    const coordsString = coordsArray.map(coord => `${coord[0]},${coord[1]},0`).join('\n          ');
-    
-    // Tworzenie dokumentu KML
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${name || 'Trasa'}</name>
-    <Style id="routeStyle">
-      <LineStyle>
-        <color>ff00ffff</color> <!-- Format AABBGGRR (alfa, niebieski, zielony, czerwony) - to jest żółty -->
-        <width>4</width>
-      </LineStyle>
-    </Style>
-    <Placemark>
-      <name>${name || 'Trasa'}</name>
-      <styleUrl>#routeStyle</styleUrl>
-      <LineString>
-        <coordinates>
-          ${coordsString}
-        </coordinates>
-      </LineString>
-    </Placemark>
-  </Document>
-</kml>`;
-  }
 
-  // Nowa funkcja do generowania KML z wieloetapową trasą (dojazd + szlak)
-  function generateMultiStageKMLFromGeoJSON(userLocation, geojson, name) {
-    // Ekstrakcja współrzędnych szlaku
-    let trailCoordsArray = [];
-    
-    if (geojson.type === 'Feature') {
-      if (geojson.geometry.type === 'LineString') {
-        trailCoordsArray = geojson.geometry.coordinates;
-      } else if (geojson.geometry.type === 'MultiLineString') {
-        trailCoordsArray = geojson.geometry.coordinates.flat();
-      }
-    } else if (geojson.type === 'LineString') {
-      trailCoordsArray = geojson.coordinates;
-    } else if (geojson.type === 'MultiLineString') {
-      trailCoordsArray = geojson.coordinates.flat();
-    }
-    
-    if (!trailCoordsArray || trailCoordsArray.length === 0) {
-      return generateKMLFromGeoJSON(geojson, name); // Fallback do standardowej funkcji
-    }
-    
-    const trailStart = trailCoordsArray[0];
-    const trailEnd = trailCoordsArray[trailCoordsArray.length - 1];
-    
-    // Format KML: longitude,latitude,altitude
-    const trailCoordsString = trailCoordsArray.map(coord => `${coord[0]},${coord[1]},0`).join('\n          ');
-    
-    // Tworzenie dokumentu KML z wieloma segmentami
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${name || 'Trasa'} - Pełna podróż</name>
-    
-    <!-- Style dla różnych segmentów -->
-    <Style id="drivingStyle">
-      <LineStyle>
-        <color>ff0000ff</color> <!-- Czerwony dla dojazdu samochodem -->
-        <width>5</width>
-      </LineStyle>
-    </Style>
-    
-    <Style id="walkingStyle">
-      <LineStyle>
-        <color>ff00ff00</color> <!-- Zielony dla szlaku pieszego -->
-        <width>4</width>
-      </LineStyle>
-    </Style>
-    
-    <Style id="startPoint">
-      <IconStyle>
-        <color>ff00ff00</color>
-        <scale>1.2</scale>
-        <Icon>
-          <href>http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png</href>
-        </Icon>
-      </IconStyle>
-    </Style>
-    
-    <Style id="trailStartPoint">
-      <IconStyle>
-        <color>ff0000ff</color>
-        <scale>1.1</scale>
-        <Icon>
-          <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
-        </Icon>
-      </IconStyle>
-    </Style>
-    
-    <Style id="endPoint">
-      <IconStyle>
-        <color>ffff0000</color>
-        <scale>1.2</scale>
-        <Icon>
-          <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
-        </Icon>
-      </IconStyle>
-    </Style>
-    
-    <!-- Punkty oznaczające -->
-    <Placemark>
-      <name>Start - Twoja lokalizacja</name>
-      <description>Punkt początkowy podróży (dojazd samochodem)</description>
-      <styleUrl>#startPoint</styleUrl>
-      <Point>
-        <coordinates>${userLocation.longitude},${userLocation.latitude},0</coordinates>
-      </Point>
-    </Placemark>
-    
-    <Placemark>
-      <name>Początek szlaku - ${name}</name>
-      <description>Tu zostawiasz samochód i zaczynasz wędrówkę pieszo</description>
-      <styleUrl>#trailStartPoint</styleUrl>
-      <Point>
-        <coordinates>${trailStart[0]},${trailStart[1]},0</coordinates>
-      </Point>
-    </Placemark>
-    
-    <Placemark>
-      <name>Koniec szlaku - ${name}</name>
-      <description>Meta wędrówki pieszej</description>
-      <styleUrl>#endPoint</styleUrl>
-      <Point>
-        <coordinates>${trailEnd[0]},${trailEnd[1]},0</coordinates>
-      </Point>
-    </Placemark>
-    
-    <!-- Linia szlaku pieszego -->
-    <Placemark>
-      <name>Szlak pieszy - ${name}</name>
-      <description>Trasa wędrówki pieszej</description>
-      <styleUrl>#walkingStyle</styleUrl>
-      <LineString>
-        <coordinates>
-          ${trailCoordsString}
-        </coordinates>
-      </LineString>
-    </Placemark>
-    
-    <!-- Informacja o dojeździe -->
-    <Placemark>
-      <name>Dojazd samochodem</name>
-      <description>Użyj nawigacji samochodowej, aby dojechać z punktu startowego do początku szlaku. Ta linia jest tylko orientacyjna - użyj rzeczywistej nawigacji drogowej.</description>
-      <styleUrl>#drivingStyle</styleUrl>
-      <LineString>
-        <coordinates>
-          ${userLocation.longitude},${userLocation.latitude},0
-          ${trailStart[0]},${trailStart[1]},0
-        </coordinates>
-      </LineString>
-    </Placemark>
-    
-  </Document>
-</kml>`;
-  }
-  
-  // Stara funkcja konwertująca GeoJSON do formatu KML (do usunięcia)
-  function convertGeoJSONToKML(geojson, name) {
-    // Podstawowy template KML
-    const kmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${name || 'Trasa'}</name>
-    <Style id="routeStyle">
-      <LineStyle>
-        <color>ff00ffff</color> <!-- Format AABBGGRR (alfa, niebieski, zielony, czerwony) - to jest żółty -->
-        <width>4</width>
-      </LineStyle>
-    </Style>
-    <Placemark>
-      <name>${name || 'Trasa'}</name>
-      <styleUrl>#routeStyle</styleUrl>
-      <LineString>
-        <coordinates>
-          ${getCoordinatesString(geojson)}
-        </coordinates>
-      </LineString>
-    </Placemark>
-  </Document>
-</kml>`;
+  // Udostępnij funkcję globalnie dla modułów
+  window.showCustomModal = showCustomModal;
 
-    return kmlTemplate;
-  }
-
-  // Pomocnicza funkcja do wyodrębnienia współrzędnych z GeoJSON
-  function getCoordinatesString(geojson) {
-    let coordsArray = [];
-
-    // Obsługa różnych typów GeoJSON
-    if (geojson.type === 'Feature') {
-      // Feature z geometrią
-      if (geojson.geometry.type === 'LineString') {
-        coordsArray = geojson.geometry.coordinates;
-      } else if (geojson.geometry.type === 'MultiLineString') {
-        // Łączymy wszystkie linie w jedną
-        coordsArray = geojson.geometry.coordinates.flat();
-      }
-    } else if (geojson.type === 'LineString') {
-      coordsArray = geojson.coordinates;
-    } else if (geojson.type === 'MultiLineString') {
-      coordsArray = geojson.coordinates.flat();
-    }
-
-    // Format KML: longitude,latitude,altitude (altitude opcjonalne)
-    return coordsArray.map(coord => `${coord[0]},${coord[1]},0`).join('\n          ');
-  }
-  
-  // Funkcja otwierająca trasę w Google Maps
-  // Funkcja pomocnicza do uzyskania aktualnej lokalizacji użytkownika z cache'owaniem
-  let cachedUserLocation = null;
-  let locationCacheTime = null;
-  const LOCATION_CACHE_DURATION = 300000; // 5 minut
-  
-  function getCurrentUserLocation(useCache = true) {
-    return new Promise((resolve, reject) => {
-      // Sprawdź cache
-      if (useCache && cachedUserLocation && locationCacheTime && 
-          (Date.now() - locationCacheTime < LOCATION_CACHE_DURATION)) {
-        resolve(cachedUserLocation);
-        return;
-      }
-      
-      if (!navigator.geolocation) {
-        reject(new Error('Geolokalizacja nie jest obsługiwana przez tę przeglądarkę'));
-        return;
-      }
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const location = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-          
-          // Zapisz do cache
-          cachedUserLocation = location;
-          locationCacheTime = Date.now();
-          
-          resolve(location);
-        },
-        (error) => {
-          let errorMessage = 'Błąd geolokalizacji: ';
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage += 'Dostęp do lokalizacji został odrzucony przez użytkownika.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage += 'Informacje o lokalizacji są niedostępne.';
-              break;
-            case error.TIMEOUT:
-              errorMessage += 'Przekroczono czas oczekiwania na lokalizację.';
-              break;
-            default:
-              errorMessage += 'Wystąpił nieznany błąd.';
-              break;
-          }
-          reject(new Error(errorMessage));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000 // Pozwól na dane starsze niż 1 minuta
-        }
-      );
-    });
-  }
-
-  async function openRouteInGoogleMaps(geojson, name, userLocation = null) {
-    try {
-      // Wybieramy punkty początkowy i końcowy trasy pieszej
-      let coords = [];
-      
-      if (geojson.type === 'Feature') {
-        if (geojson.geometry.type === 'LineString') {
-          coords = geojson.geometry.coordinates;
-        } else if (geojson.geometry.type === 'MultiLineString') {
-          coords = geojson.geometry.coordinates.flat();
-        }
-      } else if (geojson.type === 'LineString') {
-        coords = geojson.coordinates;
-      } else if (geojson.type === 'MultiLineString') {
-        coords = geojson.coordinates.flat();
-      }
-      
-      if (!coords || coords.length === 0) {
-        console.error("Nie udało się znaleźć współrzędnych trasy");
-        return;
-      }
-      
-      const trailStartPoint = coords[0]; // Początek szlaku pieszego
-      const trailEndPoint = coords[coords.length - 1]; // Koniec szlaku pieszego
-      
-      // Jeśli mamy lokalizację użytkownika, użyj jej
-      if (userLocation) {
-        // Tworzymy zaawansowany URL Google Maps, który lepiej obsługuje wielomodalne trasy
-        const origin = encodeURIComponent(`${userLocation.latitude},${userLocation.longitude}`);
-        const waypoint = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
-        const destination = encodeURIComponent(`${trailEndPoint[1]},${trailEndPoint[0]}`);
-        
-        // Najlepszy URL dla wielomodalnych tras - Google Maps automatycznie dostosuje transport
-        const googleMapsUrl = `https://www.google.com/maps/dir/${origin}/${waypoint}/${destination}/@${trailStartPoint[1]},${trailStartPoint[0]},13z/data=!3m1!4b1!4m2!4m1!3e0`;
-        
-        // Otwieramy Google Maps w nowej karcie
-        window.open(googleMapsUrl, '_blank');
-        
-        // Pokazujemy krótką informację użytkownikowi
-        setTimeout(() => {
-          showCustomModal({
-            title: 'Trasa otwarta w Google Maps',
-            message: `Google Maps pokaże trasę z 3 punktami:
-📍 Start: Twoja lokalizacja
-🚗 Parking: Początek szlaku "${name}"
-🎯 Meta: Koniec szlaku
-
-Google automatycznie zasugeruje najlepszy transport dla każdego odcinka.`,
-            confirmText: 'OK',
-            cancelText: null
-          });
-        }, 500);
-        
-      } else {
-        // Bez lokalizacji użytkownika - tylko szlak pieszy
-        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${trailStartPoint[1]},${trailStartPoint[0]}&destination=${trailEndPoint[1]},${trailEndPoint[0]}&travelmode=walking`;
-        window.open(googleMapsUrl, '_blank');
-      }
-      
-    } catch (e) {
-      console.error("Błąd podczas otwierania Google Maps:", e);
-      alert("Nie udało się otworzyć trasy w Google Maps.");
-    }
-  }
+  // --- Helper: force restore cyan progress line & slice ---
   
   async function downloadCurrentRoute(format = 'kml'){
-    
-    // TEMP: pause animation during export to avoid race with RAF
-    const _wasPaused = (typeof paused!=='undefined') ? paused : true;
-    if(typeof animId!=='undefined' && animId){ try{ cancelAnimationFrame(animId); }catch(e){} animId = null; }
-    if(typeof setPauseUI==='function'){ try{ paused = true; setPauseUI(); }catch(e){} }
-    
     // Sprawdź czy mamy niezbędne dane
-    if(!currentItem) return;
-    
-    // Jeśli nie mamy ścieżki, ale mamy aktywny szlak, spróbujmy ją pobrać
-    if(!currentPath) {
-      try {
-        // Pobierz dane ścieżki dla aktualnego elementu
-        const hikingSource = map.getSource('hiking');
-        if(hikingSource) {
-          const data = hikingSource._data;
-          if(data && data.features) {
-            const feature = data.features.find(f => f.properties.idx === currentItem.idx);
-            if(feature) {
-              currentPath = feature;
-            }
-          }
-        }
-      } catch(e) {
-        console.error('Błąd podczas pobierania danych ścieżki', e);
-      }
-      
-      // Jeśli nadal nie mamy ścieżki, przerwij
-      if(!currentPath) return;
-    }
-    const name = currentItem.name || 'trasa';
-    const color = osmcToColor(currentItem.osmc || currentItem._osmc);
-    const distKm = turf.length(currentPath);
-    
-    // Jeśli wybrano format KML, konwertujemy i pobieramy KML
-    if (format === 'kml') {
-      let kmlContent;
-      let filename = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'') || 'trasa';
-      
-      try {
-        // Spróbuj uzyskać aktualną lokalizację użytkownika dla rozszerzonego KML
-        const userLocation = await getCurrentUserLocation();
-        
-        // Zapytaj użytkownika, czy chce dodać dojazd do KML
-        const addDrivingToKML = await showCustomModal({
-          title: 'Typ pliku KML',
-          message: `Czy chcesz wygenerować KML z dojazdem samochodem z Twojej aktualnej lokalizacji do szlaku "${name}"?`,
-          confirmText: 'Tak, z dojazdem',
-          cancelText: 'Nie, tylko szlak'
-        });
-        
-        if (addDrivingToKML) {
-          // Generuj rozszerzony KML z dojazdem
-          kmlContent = generateMultiStageKMLFromGeoJSON(userLocation, currentPath, name);
-          filename = `${filename}_z_dojazdem`;
-        } else {
-          // Standardowy KML tylko szlaku
-          kmlContent = generateKMLFromGeoJSON(currentPath, name);
-        }
-        
-      } catch (geolocationError) {
-        console.warn('Nie udało się uzyskać lokalizacji dla KML:', geolocationError.message);
-        
-        // Fallback do standardowego KML
-        kmlContent = generateKMLFromGeoJSON(currentPath, name);
-        
-        // Opcjonalnie pokaż komunikat użytkownikowi
-        setTimeout(() => {
-          showCustomModal({
-            title: 'Informacja',
-            message: 'Generuję standardowy KML tylko z trasą szlaku (brak dostępu do lokalizacji dla dojazdu).',
-            confirmText: 'OK',
-            cancelText: null
-          });
-        }, 500);
-      }
-      
-      // Utwórz plik do pobrania
-      const blob = new Blob([kmlContent], {type: 'application/vnd.google-earth.kml+xml'});
-      const url = URL.createObjectURL(blob);
-      
-      // Pobierz plik
-      const a = document.createElement('a');
-      a.download = `${filename}.kml`;
-      a.href = url;
-      a.click();
-      
-      // Zwolnij URL
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-      
-      // Zapytaj użytkownika niestandardowym oknem dialogowym, czy chce otworzyć trasę w Google Maps
-      setTimeout(async () => {
-        const openInGoogleMaps = await showCustomModal({
-          title: 'Otworzyć w Google Maps?',
-          message: 'Plik KML został pobrany. Czy chcesz również otworzyć tę trasę w Google Maps?',
-          confirmText: 'Otwórz w Google Maps',
-          cancelText: 'Nie, dziękuję'
-        });
-        
-        if (openInGoogleMaps) {
-          // Spróbuj uzyskać lokalizację użytkownika przed otwarciem Google Maps
-          try {
-            const userLocation = await getCurrentUserLocation();
-            openRouteInGoogleMaps(currentPath, name, userLocation);
-          } catch (error) {
-            // Jeśli nie można uzyskać lokalizacji, otwórz bez niej
-            console.warn('Nie udało się uzyskać lokalizacji użytkownika:', error);
-            openRouteInGoogleMaps(currentPath, name, null);
-          }
-        }
-      }, 500); // Krótkie opóźnienie, aby użytkownik najpierw zobaczył powiadomienie o pobraniu
-      
+    if (!currentItem) {
+      console.warn('Brak aktualnej trasy do eksportu');
       return;
     }
     
-    // Poniżej istniejący kod dla eksportu PNG
-    
-    // Save current view and style props
-    const prev = {
-      center: map.getCenter(),
-      zoom: map.getZoom(),
-      pitch: map.getPitch(),
-      bearing: map.getBearing(),
-      casing: map.getPaintProperty('hiking-casing','line-width'),
-      colorW: map.getPaintProperty('hiking-color','line-width'),
-      progW: (map.getLayer('progress-line') ? map.getPaintProperty('progress-line','line-width') : null)
-    };
-    // Fit to bbox of current path (portrait/landscape padding)
-    const bb = turf.bbox(currentPath); // [w,s,e,n]
-    const width = map.getCanvas().width, height = map.getCanvas().height;
-    const pad = Math.round(Math.min(width, height) * 0.08);
-    
-    // --- Only selected route on export ---
-    const hikingSrc = map.getSource('hiking');
-    const restoreHiking = !!hikingSrc;
-    if(restoreHiking){
-      try{
-        const singleFC = { type:'FeatureCollection', features:[ currentItem.f ] };
-        hikingSrc.setData(singleFC);
-        await new Promise(res => map.once('idle', res));
-      }catch(e){ /* ignore */ }
+    // Sprawdź czy nowa funkcja jest dostępna
+    if (typeof downloadCurrentRouteNew !== 'function') {
+      console.error('downloadCurrentRouteNew nie jest dostępna. Sprawdź czy moduły zostały załadowane.');
+      alert('Błąd: Moduł eksportu nie został załadowany prawidłowo.');
+      return;
     }
     
-
-    // --- Hide animated progress ONLY for export ---
-    const restoreVisibility = {};
-    function hideForExport(id){
-      if(map.getLayer(id)){
-        try{
-          restoreVisibility[id] = map.getLayoutProperty(id, 'visibility') || 'visible';
-          map.setLayoutProperty(id, 'visibility', 'none');
-        }catch(e){}
-      }
-    }
-    function restoreAfterExport(){
-      for(const id in restoreVisibility){
-        try{ map.setLayoutProperty(id, 'visibility', restoreVisibility[id] || 'visible'); }catch(e){}
-      }
-    }
-    hideForExport('anim-line');
-    hideForExport('progress-line');
-    hideForExport('country-boundaries');
-    hideForExport('city-borders');
-
-try{
-      // Thicken lines for export
-      map.setPaintProperty('hiking-casing','line-width', 6);
-      map.setPaintProperty('hiking-color','line-width', 4.5);
-      if(map.getLayer('progress-line')) map.setPaintProperty('progress-line','line-width', 8);
-    }catch(e){}
-    document.body.classList.add('exporting');
-    // Ensure north-up, flat, and fit
-    map.easeTo({bearing:0, pitch:0, duration:0});
-    map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]], { padding: pad, duration: 0 });
-    await new Promise(res => map.once('idle', res));
-    // Compose image
-    const dpr = window.devicePixelRatio || 1;
-    const canvas = document.createElement('canvas');
-    canvas.width = map.getCanvas().width;
-    canvas.height = map.getCanvas().height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(map.getCanvas(), 0, 0);
-    
-    // Label card (short, multi-line wrapping)
-    const margin = 18*dpr;
-    const x = margin, y = margin;
-    const padX = 18*dpr, padY = 16*dpr, gap = 12*dpr, swatchW = 20*dpr; // circle + spacing
-
-    const titleFont = `${20*dpr}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
-    const subFont   = `${15*dpr}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
-    const lineH     = 22*dpr;
-    const subLineH  = 18*dpr;
-    const maxCardW  = Math.min(canvas.width*0.45, 380*dpr);  // keep it short
-    const minCardW  = 260*dpr;
-    const innerMax  = maxCardW - (padX*2 + gap + swatchW);
-
-    function wrapText(ctx, text, maxW, maxLines=3){
-      if(!text) return [''];
-      const words = String(text).split(/\s+/);
-      const lines = [];
-      let line = '';
-      ctx.font = titleFont;
-      for(const w of words){
-        const test = line ? line + ' ' + w : w;
-        if(ctx.measureText(test).width <= maxW){
-          line = test;
-        }else{
-          if(line) lines.push(line);
-          line = w;
-          if(lines.length === maxLines-1){
-            while(ctx.measureText(line + '…').width > maxW && line.length>1){
-              line = line.slice(0,-1);
-            }
-            lines.push(line + '…');
-            return lines;
-          }
-        }
-      }
-      if(line) lines.push(line);
-      return lines.slice(0, maxLines);
-    }
-
-    const ctxMeasure = canvas.getContext('2d');
-    const titleLines = wrapText(ctxMeasure, name, innerMax, 3);
-    ctxMeasure.font = titleFont;
-    const longest = titleLines.reduce((w,t)=>Math.max(w, ctxMeasure.measureText(t).width), 0);
-
-    ctxMeasure.font = subFont;
-    const distText = `${distKm.toFixed(2)} km`;
-    const distW = ctxMeasure.measureText(distText).width;
-
-    const textW = Math.max(longest, distW);
-    const cardW = Math.max(minCardW, Math.min(maxCardW, padX*2 + textW + gap + swatchW));
-    const cardH = padY*2 + titleLines.length*lineH + 10*dpr + subLineH;
-
-    // Draw card
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.96)';
-    drawRoundedRect(ctx, x, y, cardW, cardH, 12*dpr);
-    ctx.fill();
-
-    // Title lines
-    ctx.fillStyle = '#111';
-    ctx.font = titleFont;
-    for(let i=0;i<titleLines.length;i++){
-      ctx.fillText(titleLines[i], x+padX, y+padY + (i+0.8)*lineH);
-    }
-    // Distance
-    ctx.font = subFont;
-    ctx.fillText(distText, x+padX, y+padY + titleLines.length*lineH + 12*dpr);
-
-    // Color swatch (right side)
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(x+cardW - padX - 8*dpr, y+cardH/2, 8*dpr, 0, Math.PI*2); ctx.fill();
-
-    ctx.restore();
-    // Download
-    const a = document.createElement('a');
-    const safe = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'');
-    a.download = `${safe||'trasa'}.png`;
-    a.href = canvas.toDataURL('image/png');
-    a.click();
-    
-    // Pokaż powiadomienie o pobraniu
-    setTimeout(async () => {
-      await showCustomModal({
-        title: 'Pobieranie zakończone',
-        message: `Obraz PNG trasy "${name}" został pobrany.`,
-        confirmText: 'OK',
-        showCancel: false
+    try {
+      // Przekaż dane do nowej modularnej funkcji
+      await downloadCurrentRouteNew(format, {
+        currentItem: currentItem,
+        currentPath: currentPath,
+        map: map,
+        showCustomModal: showCustomModal
       });
-    }, 500);
-    // Restore
-    document.body.classList.remove('exporting');
-    try{
-      map.setPaintProperty('hiking-casing','line-width', prev.casing);
-      map.setPaintProperty('hiking-color','line-width', prev.colorW);
-      if(map.getLayer('progress-line') && prev.progW!=null) map.setPaintProperty('progress-line','line-width', prev.progW);
-    }catch(e){}
-    map.easeTo({ center: prev.center, zoom: prev.zoom, pitch: prev.pitch, bearing: prev.bearing, duration: 0 });
-  
-    // Restore full routes on map
-    try{
-      const hikingSrc2 = map.getSource('hiking');
-      if(hikingSrc2){ hikingSrc2.setData(hikingData); await new Promise(res => map.once('idle', res)); }
-    }catch(e){}
-    
-    // Przywróć widoczność warstw animacji
-    restoreAfterExport();
-    
-    // Dodatkowo wymuszamy przywrócenie cyjanowej linii
-    forceRestoreCyan();
-    
-    // Resume animation if it was playing before export
-    try{
-      if(!_wasPaused && typeof requestAnimationFrame!=='undefined' && typeof window._rafFrame==='function'){
-        const tl = document.getElementById('timeline');
-        const phase = tl ? (Number(tl.value)||0)/1000 : 0;
-        if(typeof basePhase!=='undefined'){ basePhase = phase; }
-        if(typeof startPhase!=='undefined'){ startPhase = phase; }
-        if(typeof startTime!=='undefined'){ startTime = null; }
-        try{ paused = false; if(typeof setPauseUI==='function') setPauseUI(); }catch(e){}
-        try{ animId = requestAnimationFrame(window._rafFrame); }catch(e){}
-      }
-    }catch(e){}
+    } catch (error) {
+      console.error('Błąd podczas eksportu:', error);
+      alert(`Błąd podczas eksportu: ${error.message}`);
     }
-const btnDownload = document.getElementById('btnDownload');
+  }
+
+  // Event listener dla przycisku download
+  const btnDownload = document.getElementById('btnDownload');
   if(btnDownload){
     btnDownload.addEventListener('click', async ()=>{
       // Pozwalamy na pobranie nawet jeśli currentItem został zresetowany, ale mamy aktywny indeks
@@ -1317,6 +692,7 @@ const btnDownload = document.getElementById('btnDownload');
         if(lastItem) {
           // Tymczasowo ustaw currentItem aby pobranie zadziałało
           currentItem = lastItem;
+          window.currentItem = lastItem;
           
           // Pokaż niestandardowy dialog wyboru formatu
           const isKML = await showCustomModal({
@@ -1406,6 +782,10 @@ const btnDownload = document.getElementById('btnDownload');
     currentCoords = item.coords; 
     currentPath = turf.lineString(item.coords);
     activeIdx = item.idx; // Zapamiętaj indeks elementu
+    
+    // Udostępnij globalnie dla modułów
+    window.currentItem = currentItem;
+    window.currentPath = currentPath;
     
     // Aktualizuj UI
     clearActive();
@@ -1544,6 +924,10 @@ const btnDownload = document.getElementById('btnDownload');
     currentItem = null;
     currentPath = null;
     currentCoords = null;
+    
+    // Resetuj zmienne globalne
+    window.currentItem = null;
+    window.currentPath = null;
     paused = true;
     
     // Ukryj pasek czasu
