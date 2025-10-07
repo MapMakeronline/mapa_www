@@ -108,7 +108,7 @@ class RouteExporter {
           });
           
           if (addDriving) {
-            filename = `${name}_z_dojazdem`;
+            filename = `dojazd_do_${name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'')}`;
           }
         }
       } catch (error) {
@@ -554,33 +554,25 @@ class RouteExporter {
   }
 
   /**
-   * Generuje wieloetapowy KML z dojazdem samochodem + szlak pieszy
+   * Generuje KML tylko z dojazdem samochodem do początku szlaku
    */
   generateMultiStageKMLContent(coords, name, userLocation, options = {}) {
     const { lineColor = this.config.kml.defaultLineColor, 
             lineWidth = this.config.kml.defaultLineWidth } = options;
     
     const trailStart = coords[0];
-    const trailEnd = coords[coords.length - 1];
     
     const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>${this.escapeXML(name)} - Pełna podróż</name>
-    <description>Wieloetapowa trasa: dojazd samochodem + szlak pieszy</description>
+    <name>Dojazd do szlaku "${this.escapeXML(name)}"</name>
+    <description>Trasa samochodowa z Twojej lokalizacji do początku szlaku</description>
     
-    <!-- Style dla różnych segmentów -->
+    <!-- Style dla trasy samochodowej -->
     <Style id="drivingStyle">
       <LineStyle>
         <color>ff0000ff</color> <!-- Czerwony dla dojazdu samochodem -->
         <width>5</width>
-      </LineStyle>
-    </Style>
-    
-    <Style id="walkingStyle">
-      <LineStyle>
-        <color>ff00ff00</color> <!-- Zielony dla szlaku pieszego -->
-        <width>4</width>
       </LineStyle>
     </Style>
     
@@ -594,30 +586,20 @@ class RouteExporter {
       </IconStyle>
     </Style>
     
-    <Style id="trailStartPoint">
+    <Style id="destinationPoint">
       <IconStyle>
         <color>ff0000ff</color>
-        <scale>1.1</scale>
+        <scale>1.2</scale>
         <Icon>
           <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
         </Icon>
       </IconStyle>
     </Style>
     
-    <Style id="endPoint">
-      <IconStyle>
-        <color>ffff0000</color>
-        <scale>1.2</scale>
-        <Icon>
-          <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
-        </Icon>
-      </IconStyle>
-    </Style>
-    
-    <!-- Punkty oznaczające -->
+    <!-- Punkty trasy -->
     <Placemark>
       <name>🚗 Start - Twoja lokalizacja</name>
-      <description>Punkt początkowy podróży (dojazd samochodem)</description>
+      <description>Punkt początkowy dojazdu samochodem</description>
       <styleUrl>#startPoint</styleUrl>
       <Point>
         <coordinates>${userLocation.longitude},${userLocation.latitude},0</coordinates>
@@ -625,45 +607,24 @@ class RouteExporter {
     </Placemark>
     
     <Placemark>
-      <name>🅿️ Parking - Początek szlaku "${this.escapeXML(name)}"</name>
-      <description>Tu zostawiasz samochód i zaczynasz wędrówkę pieszo</description>
-      <styleUrl>#trailStartPoint</styleUrl>
+      <name>🅿️ Cel - Początek szlaku "${this.escapeXML(name)}"</name>
+      <description>Miejsce docelowe - początek szlaku pieszego</description>
+      <styleUrl>#destinationPoint</styleUrl>
       <Point>
         <coordinates>${trailStart[0]},${trailStart[1]},0</coordinates>
       </Point>
     </Placemark>
     
+    <!-- Trasa samochodowa -->
     <Placemark>
-      <name>🎯 Meta - Koniec szlaku "${this.escapeXML(name)}"</name>
-      <description>Meta wędrówki pieszej</description>
-      <styleUrl>#endPoint</styleUrl>
-      <Point>
-        <coordinates>${trailEnd[0]},${trailEnd[1]},0</coordinates>
-      </Point>
-    </Placemark>
-    
-    <!-- Linia dojazdu (orientacyjna) -->
-    <Placemark>
-      <name>Dojazd samochodem</name>
-      <description>Użyj nawigacji samochodowej, aby dojechać z punktu startowego do początku szlaku. Ta linia jest tylko orientacyjna - użyj rzeczywistej nawigacji drogowej.</description>
+      <name>Dojazd samochodem do szlaku "${this.escapeXML(name)}"</name>
+      <description>Użyj nawigacji samochodowej do dojazdu. Ta linia jest orientacyjna - skorzystaj z rzeczywistej nawigacji GPS.</description>
       <styleUrl>#drivingStyle</styleUrl>
-      <LineString>
-        <coordinates>
-          ${userLocation.longitude},${userLocation.latitude},0
-          ${trailStart[0]},${trailStart[1]},0
-        </coordinates>
-      </LineString>
-    </Placemark>
-    
-    <!-- Szlak pieszy -->
-    <Placemark>
-      <name>Szlak pieszy - ${this.escapeXML(name)}</name>
-      <description>Trasa wędrówki pieszej</description>
-      <styleUrl>#walkingStyle</styleUrl>
       <LineString>
         <tessellate>1</tessellate>
         <coordinates>
-${coords.map(coord => `          ${coord[0]},${coord[1]},0`).join('\n')}
+          ${userLocation.longitude},${userLocation.latitude},0
+          ${trailStart[0]},${trailStart[1]},0
         </coordinates>
       </LineString>
     </Placemark>
