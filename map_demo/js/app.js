@@ -688,6 +688,141 @@ async function addGeoJsonLine(map, {
   </Document>
 </kml>`;
   }
+
+  // Nowa funkcja do generowania KML z wieloetapową trasą (dojazd + szlak)
+  function generateMultiStageKMLFromGeoJSON(userLocation, geojson, name) {
+    // Ekstrakcja współrzędnych szlaku
+    let trailCoordsArray = [];
+    
+    if (geojson.type === 'Feature') {
+      if (geojson.geometry.type === 'LineString') {
+        trailCoordsArray = geojson.geometry.coordinates;
+      } else if (geojson.geometry.type === 'MultiLineString') {
+        trailCoordsArray = geojson.geometry.coordinates.flat();
+      }
+    } else if (geojson.type === 'LineString') {
+      trailCoordsArray = geojson.coordinates;
+    } else if (geojson.type === 'MultiLineString') {
+      trailCoordsArray = geojson.coordinates.flat();
+    }
+    
+    if (!trailCoordsArray || trailCoordsArray.length === 0) {
+      return generateKMLFromGeoJSON(geojson, name); // Fallback do standardowej funkcji
+    }
+    
+    const trailStart = trailCoordsArray[0];
+    const trailEnd = trailCoordsArray[trailCoordsArray.length - 1];
+    
+    // Format KML: longitude,latitude,altitude
+    const trailCoordsString = trailCoordsArray.map(coord => `${coord[0]},${coord[1]},0`).join('\n          ');
+    
+    // Tworzenie dokumentu KML z wieloma segmentami
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${name || 'Trasa'} - Pełna podróż</name>
+    
+    <!-- Style dla różnych segmentów -->
+    <Style id="drivingStyle">
+      <LineStyle>
+        <color>ff0000ff</color> <!-- Czerwony dla dojazdu samochodem -->
+        <width>5</width>
+      </LineStyle>
+    </Style>
+    
+    <Style id="walkingStyle">
+      <LineStyle>
+        <color>ff00ff00</color> <!-- Zielony dla szlaku pieszego -->
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    
+    <Style id="startPoint">
+      <IconStyle>
+        <color>ff00ff00</color>
+        <scale>1.2</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    
+    <Style id="trailStartPoint">
+      <IconStyle>
+        <color>ff0000ff</color>
+        <scale>1.1</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    
+    <Style id="endPoint">
+      <IconStyle>
+        <color>ffff0000</color>
+        <scale>1.2</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    
+    <!-- Punkty oznaczające -->
+    <Placemark>
+      <name>Start - Twoja lokalizacja</name>
+      <description>Punkt początkowy podróży (dojazd samochodem)</description>
+      <styleUrl>#startPoint</styleUrl>
+      <Point>
+        <coordinates>${userLocation.longitude},${userLocation.latitude},0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <Placemark>
+      <name>Początek szlaku - ${name}</name>
+      <description>Tu zostawiasz samochód i zaczynasz wędrówkę pieszo</description>
+      <styleUrl>#trailStartPoint</styleUrl>
+      <Point>
+        <coordinates>${trailStart[0]},${trailStart[1]},0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <Placemark>
+      <name>Koniec szlaku - ${name}</name>
+      <description>Meta wędrówki pieszej</description>
+      <styleUrl>#endPoint</styleUrl>
+      <Point>
+        <coordinates>${trailEnd[0]},${trailEnd[1]},0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <!-- Linia szlaku pieszego -->
+    <Placemark>
+      <name>Szlak pieszy - ${name}</name>
+      <description>Trasa wędrówki pieszej</description>
+      <styleUrl>#walkingStyle</styleUrl>
+      <LineString>
+        <coordinates>
+          ${trailCoordsString}
+        </coordinates>
+      </LineString>
+    </Placemark>
+    
+    <!-- Informacja o dojeździe -->
+    <Placemark>
+      <name>Dojazd samochodem</name>
+      <description>Użyj nawigacji samochodowej, aby dojechać z punktu startowego do początku szlaku. Ta linia jest tylko orientacyjna - użyj rzeczywistej nawigacji drogowej.</description>
+      <styleUrl>#drivingStyle</styleUrl>
+      <LineString>
+        <coordinates>
+          ${userLocation.longitude},${userLocation.latitude},0
+          ${trailStart[0]},${trailStart[1]},0
+        </coordinates>
+      </LineString>
+    </Placemark>
+    
+  </Document>
+</kml>`;
+  }
   
   // Stara funkcja konwertująca GeoJSON do formatu KML (do usunięcia)
   function convertGeoJSONToKML(geojson, name) {
@@ -741,9 +876,68 @@ async function addGeoJsonLine(map, {
   }
   
   // Funkcja otwierająca trasę w Google Maps
-  function openRouteInGoogleMaps(geojson, name) {
+  // Funkcja pomocnicza do uzyskania aktualnej lokalizacji użytkownika z cache'owaniem
+  let cachedUserLocation = null;
+  let locationCacheTime = null;
+  const LOCATION_CACHE_DURATION = 300000; // 5 minut
+  
+  function getCurrentUserLocation(useCache = true) {
+    return new Promise((resolve, reject) => {
+      // Sprawdź cache
+      if (useCache && cachedUserLocation && locationCacheTime && 
+          (Date.now() - locationCacheTime < LOCATION_CACHE_DURATION)) {
+        resolve(cachedUserLocation);
+        return;
+      }
+      
+      if (!navigator.geolocation) {
+        reject(new Error('Geolokalizacja nie jest obsługiwana przez tę przeglądarkę'));
+        return;
+      }
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+          
+          // Zapisz do cache
+          cachedUserLocation = location;
+          locationCacheTime = Date.now();
+          
+          resolve(location);
+        },
+        (error) => {
+          let errorMessage = 'Błąd geolokalizacji: ';
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Dostęp do lokalizacji został odrzucony przez użytkownika.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Informacje o lokalizacji są niedostępne.';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Przekroczono czas oczekiwania na lokalizację.';
+              break;
+            default:
+              errorMessage += 'Wystąpił nieznany błąd.';
+              break;
+          }
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000 // Pozwól na dane starsze niż 1 minuta
+        }
+      );
+    });
+  }
+
+  async function openRouteInGoogleMaps(geojson, name, userLocation = null) {
     try {
-      // Wybieramy punkty początkowy i końcowy trasy
+      // Wybieramy punkty początkowy i końcowy trasy pieszej
       let coords = [];
       
       if (geojson.type === 'Feature') {
@@ -763,14 +957,43 @@ async function addGeoJsonLine(map, {
         return;
       }
       
-      const startPoint = coords[0];
-      const endPoint = coords[coords.length - 1];
-
-      // Tworzymy URL Google Maps z trasą (od - do)
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${startPoint[1]},${startPoint[0]}&destination=${endPoint[1]},${endPoint[0]}&travelmode=walking`;
+      const trailStartPoint = coords[0]; // Początek szlaku pieszego
+      const trailEndPoint = coords[coords.length - 1]; // Koniec szlaku pieszego
       
-      // Otwieramy Google Maps w nowej karcie
-      window.open(googleMapsUrl, '_blank');
+      // Jeśli mamy lokalizację użytkownika, użyj jej
+      if (userLocation) {
+        // Tworzymy zaawansowany URL Google Maps, który lepiej obsługuje wielomodalne trasy
+        const origin = encodeURIComponent(`${userLocation.latitude},${userLocation.longitude}`);
+        const waypoint = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
+        const destination = encodeURIComponent(`${trailEndPoint[1]},${trailEndPoint[0]}`);
+        
+        // Najlepszy URL dla wielomodalnych tras - Google Maps automatycznie dostosuje transport
+        const googleMapsUrl = `https://www.google.com/maps/dir/${origin}/${waypoint}/${destination}/@${trailStartPoint[1]},${trailStartPoint[0]},13z/data=!3m1!4b1!4m2!4m1!3e0`;
+        
+        // Otwieramy Google Maps w nowej karcie
+        window.open(googleMapsUrl, '_blank');
+        
+        // Pokazujemy krótką informację użytkownikowi
+        setTimeout(() => {
+          showCustomModal({
+            title: 'Trasa otwarta w Google Maps',
+            message: `Google Maps pokaże trasę z 3 punktami:
+📍 Start: Twoja lokalizacja
+🚗 Parking: Początek szlaku "${name}"
+🎯 Meta: Koniec szlaku
+
+Google automatycznie zasugeruje najlepszy transport dla każdego odcinka.`,
+            confirmText: 'OK',
+            cancelText: null
+          });
+        }, 500);
+        
+      } else {
+        // Bez lokalizacji użytkownika - tylko szlak pieszy
+        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${trailStartPoint[1]},${trailStartPoint[0]}&destination=${trailEndPoint[1]},${trailEndPoint[0]}&travelmode=walking`;
+        window.open(googleMapsUrl, '_blank');
+      }
+      
     } catch (e) {
       console.error("Błąd podczas otwierania Google Maps:", e);
       alert("Nie udało się otworzyć trasy w Google Maps.");
@@ -814,8 +1037,46 @@ async function addGeoJsonLine(map, {
     
     // Jeśli wybrano format KML, konwertujemy i pobieramy KML
     if (format === 'kml') {
-      // Generuj KML (używamy nowej funkcji z poprawnymi tagami XML)
-      const kmlContent = generateKMLFromGeoJSON(currentPath, name);
+      let kmlContent;
+      let filename = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'') || 'trasa';
+      
+      try {
+        // Spróbuj uzyskać aktualną lokalizację użytkownika dla rozszerzonego KML
+        const userLocation = await getCurrentUserLocation();
+        
+        // Zapytaj użytkownika, czy chce dodać dojazd do KML
+        const addDrivingToKML = await showCustomModal({
+          title: 'Typ pliku KML',
+          message: `Czy chcesz wygenerować KML z dojazdem samochodem z Twojej aktualnej lokalizacji do szlaku "${name}"?`,
+          confirmText: 'Tak, z dojazdem',
+          cancelText: 'Nie, tylko szlak'
+        });
+        
+        if (addDrivingToKML) {
+          // Generuj rozszerzony KML z dojazdem
+          kmlContent = generateMultiStageKMLFromGeoJSON(userLocation, currentPath, name);
+          filename = `${filename}_z_dojazdem`;
+        } else {
+          // Standardowy KML tylko szlaku
+          kmlContent = generateKMLFromGeoJSON(currentPath, name);
+        }
+        
+      } catch (geolocationError) {
+        console.warn('Nie udało się uzyskać lokalizacji dla KML:', geolocationError.message);
+        
+        // Fallback do standardowego KML
+        kmlContent = generateKMLFromGeoJSON(currentPath, name);
+        
+        // Opcjonalnie pokaż komunikat użytkownikowi
+        setTimeout(() => {
+          showCustomModal({
+            title: 'Informacja',
+            message: 'Generuję standardowy KML tylko z trasą szlaku (brak dostępu do lokalizacji dla dojazdu).',
+            confirmText: 'OK',
+            cancelText: null
+          });
+        }, 500);
+      }
       
       // Utwórz plik do pobrania
       const blob = new Blob([kmlContent], {type: 'application/vnd.google-earth.kml+xml'});
@@ -823,8 +1084,7 @@ async function addGeoJsonLine(map, {
       
       // Pobierz plik
       const a = document.createElement('a');
-      const safe = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'');
-      a.download = `${safe||'trasa'}.kml`;
+      a.download = `${filename}.kml`;
       a.href = url;
       a.click();
       
@@ -841,7 +1101,15 @@ async function addGeoJsonLine(map, {
         });
         
         if (openInGoogleMaps) {
-          openRouteInGoogleMaps(currentPath, name);
+          // Spróbuj uzyskać lokalizację użytkownika przed otwarciem Google Maps
+          try {
+            const userLocation = await getCurrentUserLocation();
+            openRouteInGoogleMaps(currentPath, name, userLocation);
+          } catch (error) {
+            // Jeśli nie można uzyskać lokalizacji, otwórz bez niej
+            console.warn('Nie udało się uzyskać lokalizacji użytkownika:', error);
+            openRouteInGoogleMaps(currentPath, name, null);
+          }
         }
       }, 500); // Krótkie opóźnienie, aby użytkownik najpierw zobaczył powiadomienie o pobraniu
       

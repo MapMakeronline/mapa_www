@@ -608,8 +608,9 @@ body { overflow-x: hidden; }
 /* Główny kontener wyszukiwarki */
 .search-control {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 10px; /* Pozycja obok kontrolek zoom */
+  right: 50px; /* Trochę miejsca od prawej krawędzi, tuż obok panelu zoom */
+  left: auto;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -648,15 +649,16 @@ body { overflow-x: hidden; }
 /* Wysuwany pasek wyszukiwania */
 .search-bar {
   position: absolute;
-  right: 22px; /* Wyrównanie z ikoną lupy */
+  right: 42px; /* Umiejscowienie tak, żeby pasek rozwijał się w lewo */
+  left: auto;
   top: 0;
   background: rgba(0,0,0,0.6);
   border-radius: 21px;
   height: 42px;
   display: flex;
   align-items: center;
-  padding-left: 42px; /* Miejsce na ikonę lupy */
-  padding-right: 10px;
+  padding-right: 42px; /* Miejsce na ikonę lupy */
+  padding-left: 10px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
   border: 1px solid rgba(255,255,255,0.2);
@@ -665,12 +667,15 @@ body { overflow-x: hidden; }
   opacity: 0;
   pointer-events: none;
   backdrop-filter: blur(5px);
+  direction: rtl; /* Sprawiamy, że elementy są wyrównane od prawej */
 }
 
 .search-control.active .search-bar {
   width: 280px; /* Szerokość po rozwinięciu */
   opacity: 1;
   pointer-events: all;
+  right: 42px; /* Umiejscowienie względem prawej krawędzi */
+  transform: translateX(-100%); /* Przesunięcie w lewo o całą szerokość */
 }
 
 /* Pole input */
@@ -684,6 +689,7 @@ body { overflow-x: hidden; }
   height: 100%;
   outline: none;
   width: 100%;
+  direction: ltr; /* Przywracamy normalny kierunek tekstu */
 }
 
 .search-bar input::placeholder {
@@ -703,6 +709,7 @@ body { overflow-x: hidden; }
   cursor: pointer;
   border-radius: 50%;
   transition: background 0.2s;
+  direction: ltr; /* Przywracamy normalny kierunek */
 }
 
 .search-close-btn:hover {
@@ -719,7 +726,8 @@ body { overflow-x: hidden; }
 .search-results {
   position: absolute;
   top: 50px;
-  right: 0;
+  right: 50px; /* Wyrównanie do prawej strony, przy ikonie lupy */
+  left: auto;
   width: 320px;
   max-height: 70vh;
   overflow-y: auto;
@@ -730,6 +738,7 @@ body { overflow-x: hidden; }
   z-index: 9;
   display: none;
   backdrop-filter: blur(8px);
+  transform: translateX(-100%); /* Przesunięcie w lewo */
 }
 
 .search-control.with-results .search-results {
@@ -808,11 +817,19 @@ body { overflow-x: hidden; }
 /* Stany responsywne */
 @media (max-width: 768px) {
   .search-control.active .search-bar {
-    width: calc(100vw - 80px); /* Szersza wyszukiwarka na mobilnych */
+    width: calc(100vw - 120px); /* Szersza wyszukiwarka na mobilnych */
   }
   
   .search-results {
-    width: calc(100vw - 40px);
+    width: calc(100vw - 60px);
+    right: 50px;
+    transform: translateX(-100%);
+  }
+  
+  /* Na mobilnych ekranach delikatnie dostosowujemy pozycję */
+  .search-control {
+    top: 10px;
+    right: 50px;
   }
 }
 
