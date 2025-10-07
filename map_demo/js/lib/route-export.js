@@ -124,7 +124,8 @@ class RouteExporter {
       this.downloadFile(kmlContent, `${filename}.kml`, 'application/vnd.google-earth.kml+xml');
       
       // Opcjonalnie otwórz w Google Maps
-      await this.offerGoogleMapsIntegration(geojson, name, addDriving ? userLocation : null, options.showCustomModal);
+      // Nowa logika: jeśli addDriving = true, to tylko dojazd do początku (2 punkty)
+      await this.offerGoogleMapsIntegration(geojson, name, userLocation, options.showCustomModal, addDriving);
       
       return { success: true, format: 'kml', filename: `${filename}.kml` };
       
@@ -667,7 +668,7 @@ class RouteExporter {
   /**
    * Oferuje integrację z Google Maps
    */
-  async offerGoogleMapsIntegration(geojson, name, userLocation, showCustomModal = null) {
+  async offerGoogleMapsIntegration(geojson, name, userLocation, showCustomModal = null, drivingOnly = false) {
     try {
       // Sprawdź czy funkcja showCustomModal jest dostępna
       const modalFn = showCustomModal || (typeof window !== 'undefined' && window.showCustomModal);
@@ -685,7 +686,7 @@ class RouteExporter {
         });
         
         if (openInGoogleMaps) {
-          await this.openRouteInGoogleMaps(geojson, name, userLocation, modalFn);
+          await this.openRouteInGoogleMaps(geojson, name, userLocation, modalFn, drivingOnly);
         }
       }, 500);
       
@@ -697,7 +698,7 @@ class RouteExporter {
   /**
    * Otwiera trasę w Google Maps
    */
-  async openRouteInGoogleMaps(geojson, name, userLocation = null, showCustomModal = null) {
+  async openRouteInGoogleMaps(geojson, name, userLocation = null, showCustomModal = null, drivingOnly = false) {
     try {
       const coords = this.extractCoordinates(geojson);
       if (!coords || coords.length === 0) {
@@ -707,24 +708,34 @@ class RouteExporter {
       const trailStartPoint = coords[0];
       const trailEndPoint = coords[coords.length - 1];
       
-      // Jeśli mamy lokalizację użytkownika, użyj wielomodalnej trasy
+      // Jeśli mamy lokalizację użytkownika
       if (userLocation && this.isValidLocation(userLocation)) {
         const origin = encodeURIComponent(`${userLocation.latitude},${userLocation.longitude}`);
-        const waypoint = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
-        const destination = encodeURIComponent(`${trailEndPoint[1]},${trailEndPoint[0]}`);
+        const destination = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
         
-        const googleMapsUrl = `https://www.google.com/maps/dir/${origin}/${waypoint}/${destination}/`;
-        window.open(googleMapsUrl, '_blank');
-        
-        // Pokaż informację użytkownikowi
-        this.showRouteInfo(name, true, showCustomModal);
+        if (drivingOnly) {
+          // NOWA LOGIKA: Tylko dojazd samochodem do początku szlaku (2 punkty)
+          const googleMapsUrl = `https://www.google.com/maps/dir/${origin}/${destination}/?travelmode=driving`;
+          window.open(googleMapsUrl, '_blank');
+          
+          this.showRouteInfo(name, 'driving-only', showCustomModal);
+        } else {
+          // STARA LOGIKA: Wielomodalna trasa z 3 punktami
+          const waypoint = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
+          const finalDestination = encodeURIComponent(`${trailEndPoint[1]},${trailEndPoint[0]}`);
+          
+          const googleMapsUrl = `https://www.google.com/maps/dir/${origin}/${waypoint}/${finalDestination}/`;
+          window.open(googleMapsUrl, '_blank');
+          
+          this.showRouteInfo(name, 'multimodal', showCustomModal);
+        }
         
       } else {
         // Bez lokalizacji użytkownika - tylko trasa piesza
         const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${trailStartPoint[1]},${trailStartPoint[0]}&destination=${trailEndPoint[1]},${trailEndPoint[0]}&travelmode=walking`;
         window.open(googleMapsUrl, '_blank');
         
-        this.showRouteInfo(name, false, showCustomModal);
+        this.showRouteInfo(name, 'walking-only', showCustomModal);
       }
       
     } catch (error) {
@@ -736,19 +747,37 @@ class RouteExporter {
   /**
    * Pokazuje informację o otwartej trasie
    */
-  showRouteInfo(name, hasUserLocation, showCustomModal = null) {
+  showRouteInfo(name, routeType, showCustomModal = null) {
     const modalFn = showCustomModal || (typeof window !== 'undefined' && window.showCustomModal);
     if (typeof modalFn !== 'function') return;
     
     setTimeout(() => {
-      const message = hasUserLocation 
-        ? `Google Maps pokaże trasę z 3 punktami:
+      let message;
+      
+      switch (routeType) {
+        case 'driving-only':
+          message = `🚗 Google Maps pokaże dojazd samochodem do szlaku "${name}":
+
+📍 Start: Twoja lokalizacja
+🅿️ Cel: Początek szlaku
+
+Nawigacja samochodowa do miejsca, gdzie możesz rozpocząć wędrówkę pieszą.`;
+          break;
+          
+        case 'multimodal':
+          message = `Google Maps pokaże trasę z 3 punktami:
 📍 Start: Twoja lokalizacja
 🚗 Parking: Początek szlaku "${name}"
 🎯 Meta: Koniec szlaku
 
-Google automatycznie zasugeruje najlepszy transport dla każdego odcinka.`
-        : `Otwarto trasę pieszą "${name}" w Google Maps.`;
+Google automatycznie zasugeruje najlepszy transport dla każdego odcinka.`;
+          break;
+          
+        case 'walking-only':
+        default:
+          message = `Otwarto trasę pieszą "${name}" w Google Maps.`;
+          break;
+      }
       
       modalFn({
         title: 'Trasa otwarta w Google Maps',

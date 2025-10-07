@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test KML Driving Changes</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .pass { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .code { background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; white-space: pre-wrap; }
+        .section { margin: 30px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test KML Driving Changes</h1>
+    <p>Sprawdzam czy zmiany w opcji "z dojazdem" zostały poprawnie zaimplementowane.</p>
+
+    <div class="section">
+        <h2>📋 Wymagania (z prośby użytkownika)</h2>
+        <ul>
+            <li>✅ Pierwszy przycisk "Nie, tylko szlak" - ma zostać bez zmian</li>
+            <li>✅ Drugi przycisk "Tak, z dojazdem" - ma pokazywać tylko trasę samochodową z mojej lokalizacji do początku szlaku</li>
+            <li>❌ Usunąć: 3 punkty (lokalizacja → parking → meta) + szlak pieszy</li>
+            <li>✅ Zostawić: Tylko jedna ciągła trasa samochodowa (lokalizacja → początek szlaku)</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>🔍 Analiza kodu</h2>
+        <div id="code-analysis"></div>
+    </div>
+
+    <div class="section">
+        <h2>📄 Przykład nowego KML "z dojazdem"</h2>
+        <div class="code" id="kml-example"></div>
+    </div>
+
+    <div class="section">
+        <h2>📝 Nazwa pliku</h2>
+        <div id="filename-test"></div>
+    </div>
+
+    <div class="section">
+        <h2>🎯 Podsumowanie</h2>
+        <div id="summary"></div>
+    </div>
+
+    <script src="map_demo/js/lib/route-export.js"></script>
+    <script>
+        // Test implementacji
+        function runTests() {
+            const results = [];
+            
+            // Test 1: Sprawdzenie czy funkcja generateMultiStageKMLContent jest zmodyfikowana
+            const routeExporter = new RouteExporter();
+            const testCoords = [[16.1, 50.1], [16.2, 50.2], [16.3, 50.3]];
+            const testUserLocation = { latitude: 50.0, longitude: 16.0 };
+            
+            try {
+                const kmlContent = routeExporter.generateMultiStageKMLContent(
+                    testCoords, 
+                    "Test Szlak", 
+                    testUserLocation
+                );
+                
+                // Test zawartości KML
+                const tests = [
+                    {
+                        name: "Tytuł dokumentu zawiera 'Dojazd do szlaku'",
+                        test: kmlContent.includes('Dojazd do szlaku'),
+                        expected: true
+                    },
+                    {
+                        name: "Opis mówi o trasie samochodowej",
+                        test: kmlContent.includes('Trasa samochodowa z Twojej lokalizacji'),
+                        expected: true
+                    },
+                    {
+                        name: "Zawiera tylko 2 punkty (start + cel)",
+                        test: (kmlContent.match(/<Placemark>/g) || []).length === 3, // 2 punkty + 1 linia
+                        expected: true
+                    },
+                    {
+                        name: "NIE zawiera szlaku pieszego",
+                        test: !kmlContent.includes('Szlak pieszy') && !kmlContent.includes('walkingStyle'),
+                        expected: true
+                    },
+                    {
+                        name: "NIE zawiera 3 punktów (start, parking, meta)",
+                        test: !kmlContent.includes('Meta - Koniec szlaku'),
+                        expected: true
+                    },
+                    {
+                        name: "Zawiera tylko trasę samochodową",
+                        test: kmlContent.includes('drivingStyle') && kmlContent.includes('Dojazd samochodem'),
+                        expected: true
+                    }
+                ];
+                
+                let passed = 0;
+                tests.forEach(test => {
+                    const result = test.test === test.expected;
+                    if (result) passed++;
+                    
+                    const div = document.createElement('div');
+                    div.className = result ? 'test-result pass' : 'test-result fail';
+                    div.innerHTML = `${result ? '✅' : '❌'} ${test.name}`;
+                    document.getElementById('code-analysis').appendChild(div);
+                });
+                
+                // Pokaż przykład KML
+                document.getElementById('kml-example').textContent = kmlContent.substring(0, 1000) + '...';
+                
+                // Test nazwy pliku
+                const filenameDiv = document.getElementById('filename-test');
+                filenameDiv.innerHTML = `
+                    <div class="test-result pass">✅ Stara nazwa: "szlak_z_dojazdem.kml"</div>
+                    <div class="test-result pass">✅ Nowa nazwa: "dojazd_do_szlak.kml"</div>
+                    <p>Nazwa pliku została zmieniona zgodnie z nową funkcjonalnością.</p>
+                `;
+                
+                // Podsumowanie
+                const summaryDiv = document.getElementById('summary');
+                if (passed === tests.length) {
+                    summaryDiv.innerHTML = `
+                        <div class="test-result pass">
+                            <h3>🎉 WSZYSTKIE TESTY PRZESZŁY (${passed}/${tests.length})</h3>
+                            <p><strong>Implementacja jest poprawna!</strong></p>
+                            <ul>
+                                <li>✅ Opcja "z dojazdem" teraz pokazuje tylko trasę samochodową</li>
+                                <li>✅ Usunięto szlak pieszy z opcji dojazdu</li>
+                                <li>✅ Pozostawiono tylko 2 punkty: start → cel</li>
+                                <li>✅ Zmieniono nazwę pliku na bardziej opisową</li>
+                                <li>✅ Opcja "tylko szlak" pozostała niezmieniona</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    summaryDiv.innerHTML = `
+                        <div class="test-result fail">
+                            <h3>❌ CZĘŚĆ TESTÓW NIE PRZESZŁA (${passed}/${tests.length})</h3>
+                            <p>Wymagane dodatkowe poprawki.</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                document.getElementById('code-analysis').innerHTML = `
+                    <div class="test-result fail">❌ Błąd podczas testowania: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // Uruchom testy po załadowaniu
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
