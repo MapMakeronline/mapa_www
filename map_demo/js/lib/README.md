@@ -4,57 +4,115 @@
 
 Nowy modularny system eksportu tras, który zastępuje poprzednią funkcjonalność pobierania w `app.js`. System składa się z dwóch głównych komponentów:
 
-## 📁 Struktura
 
-```
-js/lib/
-├── route-export.js              # Główny moduł eksportu
-├── route-export-integration.js  # Adapter integracyjny
-└── README.md                    # Ta dokumentacja
-```
+# � Biblioteka Modułów JavaScript
 
-## 🔧 Komponenty
+Kolekcja modułów wspierających funkcjonalność interaktywnej mapy szlaków. Wszystkie moduły zaprojektowane z myślą o wydajności, modularności i łatwej rozszerzalności.
 
-### 1. `route-export.js`
-**Główna klasa `RouteExporter`** - czysta implementacja logiki eksportu
+## �️ Przegląd Modułów
 
-**Funkcjonalności:**
-- ✅ Eksport do KML z multi-modal routing
-- ✅ Eksport do GPX
-- ✅ Cache geolokalizacji (5 min)
-- ✅ Walidacja współrzędnych
-- ✅ Integracja z Google Maps
-- ✅ Obsługa błędów i fallback
-- 🔄 Eksport do PNG (w przyszłości)
+### 📤 `route-export.js` - Główny Moduł Eksportu
+**Klasa `RouteExporter`** - Centralizowany system eksportu tras w wielu formatach.
 
-**Główne metody:**
+#### Możliwości Eksportu:
+- **PNG Export**: Wysokiej jakości zrzuty mapy z overlayami informacyjnymi
+- **KML Export**: Integracja z Google Maps (tryb jazdy do początku szlaku)
+- **GPX Export**: Format GPS dla urządzeń nawigacyjnych
+
+#### Kluczowe Metody:
 ```javascript
-const exporter = new RouteExporter();
+// Inicjalizacja
+const exporter = new RouteExporter(mapInstance, geoJsonData);
 
-// Eksport do różnych formatów
-await exporter.exportRoute(geojson, name, 'kml', options);
-await exporter.exportRoute(geojson, name, 'gpx', options);
+// Export PNG z overlayami
+await exporter.exportPNG(trailName, trailColor);
 
-// Geolokalizacja
-const location = await exporter.getCurrentUserLocation();
+// Export KML (tylko jazda samochodem)
+await exporter.exportKML(trailName, trailData);
 
-// Google Maps
-await exporter.openRouteInGoogleMaps(geojson, name, userLocation);
+// Export GPX
+await exporter.exportGPX(trailName, trailData);
 ```
 
-### 2. `route-export-integration.js`
-**Adapter łączący nowy moduł z istniejącym kodem**
+#### Funkcjonalności Zaawansowane:
+- **Canvas Overlays**: Automatyczne dodawanie informacji o trasie na PNG
+- **Error Handling**: Komprehensywna obsługa błędów z user feedback
+- **Progress Tracking**: Wskaźniki postępu dla długotrwałych operacji
+- **Metadata Preservation**: Zachowywanie informacji o trasie w eksportowanych plikach
 
-**Funkcjonalności:**
-- ✅ Automatyczna inicjalizacja
-- ✅ Kompatybilność wsteczna
-- ✅ Fallback do starych funkcji przy błędach
-- ✅ API do łatwego dostępu
-- ✅ Migracja istniejących funkcji
+### 🔄 `route-export-integration.js` - Warstwa Kompatybilności
+Zapewnia wsteczną kompatybilność z globalnym API podczas przejścia na modułową architekturę.
 
-**API dostępu:**
+#### Główne Funkcje:
+- **Global Function Bridge**: Mapowanie funkcji globalnych na metody klasy
+- **Initialization Management**: Zarządzanie kolejnością inicjalizacji modułów
+- **Fallback Mechanisms**: Mechanizmy awaryjne dla starszych implementacji
+
+### 🗺️ `map-helpers.js` - Narzędzia Mapowe
+Biblioteka funkcji pomocniczych do zarządzania warstwami i danymi mapy.
+
+#### `addGeoJsonLine(map, options)` 
+Dodaje lub aktualizuje linię z danymi GeoJSON na mapie z zaawansowaną konfiguracją.
+
+**Parametry:**
+- `map` - instancja mapy Mapbox GL
+- `options` - obiekt konfiguracyjny:
+  - `id` (string) - identyfikator warstwy
+  - `url` (string, opcjonalny) - URL do pliku GeoJSON
+  - `paint` (object, opcjonalny) - style malowania linii
+  - `beforeId` (string, opcjonalny) - ID warstwy przed którą dodać nową
+  - `fitToData` (boolean, opcjonalny) - czy dopasować widok do danych
+  - `padding` (number, opcjonalny) - padding przy dopasowywaniu widoku
+
+**Przykład użycia:**
 ```javascript
-// Proste API
+await window.mapHelpers.addGeoJsonLine(map, {
+  id: 'trails',
+  url: './assets/geo/converted_map.geojson',
+  paint: {
+    'line-color': '#00FFFF',
+    'line-width': 4
+  },
+  fitToData: true,
+  padding: 60
+});
+```
+
+### 🖼️ `trail-images.js` - Inteligentne Mapowanie Obrazów
+Zaawansowany system automatycznego dopasowywania zdjęć szlaków na podstawie nazwy.
+
+#### Funkcjonalności:
+- **Smart Matching**: Algorytm dopasowywania z obsługą polskich znaków
+- **Keyword System**: Elastyczne mapowanie na podstawie słów kluczowych
+- **Fallback Images**: System obrazów zastępczych
+- **400+ Trail Images**: Kompletna biblioteka zdjęć szlaków Wałbrzycha
+
+#### Główna Funkcja:
+```javascript
+function getTrailImage(trailName)
+```
+Zwraca ścieżkę do odpowiedniego zdjęcia szlaku lub obraz domyślny.
+
+**Algorytm dopasowywania:**
+- Konwersja polskich znaków na ASCII
+- Analiza słów kluczowych
+- Weryfikacja wykluczeń
+- Minimalna liczba dopasowań
+- Dokładne dopasowanie słów kluczowych
+
+## 🔧 Wzorce Architektury
+
+### Modułowość
+Każdy moduł jest samowystarczalny i może być używany niezależnie.
+
+### Error Handling
+Wszystkie moduły implementują kompleksową obsługę błędów z informowaniem użytkownika.
+
+### Performance
+Optymalizacja dla dużych zestawów danych GeoJSON i operacji Canvas.
+
+### Extensibility  
+Łatwa rozszerzalność o nowe formaty eksportu i funkcjonalności.
 await RouteExportAPI.exportKML(geojson, name, options);
 await RouteExportAPI.exportGPX(geojson, name, options);
 const location = await RouteExportAPI.getUserLocation();

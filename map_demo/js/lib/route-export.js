@@ -91,47 +91,83 @@ class RouteExporter {
 
       // Pobierz lokalizację użytkownika
       let userLocation = null;
-      let addDriving = false;
-      let filename = name;
-      
       try {
         userLocation = await this.getCurrentUserLocation();
-        
-        // Zapytaj użytkownika czy chce dodać dojazd
-        const modalFn = options.showCustomModal || (typeof window !== 'undefined' && window.showCustomModal);
-        if (typeof modalFn === 'function') {
-          addDriving = await modalFn({
-            title: 'Typ pliku KML',
-            message: `Czy chcesz wygenerować KML z dojazdem samochodem z Twojej aktualnej lokalizacji do szlaku "${name}"?`,
-            confirmText: 'Tak, z dojazdem',
-            cancelText: 'Nie, tylko szlak'
-          });
-          
-          if (addDriving) {
-            filename = `dojazd_do_${name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'')}`;
-          }
-        }
       } catch (error) {
         console.warn('Nie udało się uzyskać lokalizacji użytkownika:', error);
       }
 
-      // Generuj KML
-      const kmlContent = addDriving && userLocation ? 
-        this.generateMultiStageKMLContent(coords, name, userLocation, options) :
-        this.generateKMLContent(coords, name, null, options);
+      // Uruchom pętlę wyboru opcji
+      await this.showKMLOptionsLoop(geojson, name, userLocation, options);
       
-      // Pobierz plik
-      this.downloadFile(kmlContent, `${filename}.kml`, 'application/vnd.google-earth.kml+xml');
-      
-      // Opcjonalnie otwórz w Google Maps
-      // Nowa logika: jeśli addDriving = true, to tylko dojazd do początku (2 punkty)
-      await this.offerGoogleMapsIntegration(geojson, name, userLocation, options.showCustomModal, addDriving);
-      
-      return { success: true, format: 'kml', filename: `${filename}.kml` };
+      return { success: true, format: 'kml' };
       
     } catch (error) {
       console.error('Błąd eksportu KML:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Pętla wyboru opcji KML - pozwala na wielokrotny wybór bez ponownego eksportu
+   */
+  async showKMLOptionsLoop(geojson, name, userLocation, options = {}) {
+    const modalFn = options.showCustomModal || (typeof window !== 'undefined' && window.showCustomModal);
+    if (typeof modalFn !== 'function') {
+      console.warn('showCustomModal nie jest dostępna');
+      return;
+    }
+
+    const coords = this.extractCoordinates(geojson);
+    
+    while (true) {
+      // Pokaż komunikat wyboru
+      const addDriving = await modalFn({
+        title: 'Eksport do Google Maps',
+        message: `Co chcesz pokazać w Google Maps dla szlaku "${name}"?`,
+        confirmText: 'Dojazd samochodem',
+        cancelText: 'Tylko szlak pieszo'
+      });
+
+      // Generuj i pobierz odpowiedni KML
+      let filename = name;
+      let kmlContent;
+      
+      if (addDriving) {
+        filename = `dojazd_do_${name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'')}`;
+        kmlContent = userLocation ? 
+          this.generateMultiStageKMLContent(coords, name, userLocation, options) :
+          this.generateKMLContent(coords, name, null, options);
+      } else {
+        kmlContent = this.generateKMLContent(coords, name, null, options);
+      }
+      
+      // Pobierz plik
+      this.downloadFile(kmlContent, `${filename}.kml`, 'application/vnd.google-earth.kml+xml');
+      
+      // Pokaż Google Maps
+      const openInGoogleMaps = await modalFn({
+        title: 'Otworzyć w Google Maps?',
+        message: `Plik KML został pobrany. Czy chcesz również otworzyć tę trasę w Google Maps?`,
+        confirmText: 'Otwórz w Google Maps',
+        cancelText: 'Nie, dziękuję'
+      });
+      
+      if (openInGoogleMaps) {
+        await this.openRouteInGoogleMaps(geojson, name, userLocation, modalFn, addDriving);
+      }
+
+      // Zapytaj czy chce kontynuować
+      const continueChoosing = await modalFn({
+        title: 'Więcej opcji?',
+        message: `Czy chcesz wybrać inną opcję dla szlaku "${name}"?`,
+        confirmText: 'Tak, pokaż opcje',
+        cancelText: 'Koniec'
+      });
+      
+      if (!continueChoosing) {
+        break; // Wyjdź z pętli
+      }
     }
   }
 
@@ -680,7 +716,7 @@ class RouteExporter {
       setTimeout(async () => {
         const openInGoogleMaps = await modalFn({
           title: 'Otworzyć w Google Maps?',
-          message: 'Plik został pobrany. Czy chcesz również otworzyć tę trasę w Google Maps?',
+          message: `Plik KML został pobrany. Czy chcesz również otworzyć tę trasę w Google Maps?`,
           confirmText: 'Otwórz w Google Maps',
           cancelText: 'Nie, dziękuję'
         });
@@ -720,11 +756,11 @@ class RouteExporter {
           
           this.showRouteInfo(name, 'driving-only', showCustomModal);
         } else {
-          // STARA LOGIKA: Wielomodalna trasa z 3 punktami
-          const waypoint = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
-          const finalDestination = encodeURIComponent(`${trailEndPoint[1]},${trailEndPoint[0]}`);
+          // NOWA LOGIKA: Tylko trasa piesza z 2 punktami (początek → koniec szlaku)
+          const startPoint = encodeURIComponent(`${trailStartPoint[1]},${trailStartPoint[0]}`);
+          const endPoint = encodeURIComponent(`${trailEndPoint[1]},${trailEndPoint[0]}`);
           
-          const googleMapsUrl = `https://www.google.com/maps/dir/${origin}/${waypoint}/${finalDestination}/`;
+          const googleMapsUrl = `https://www.google.com/maps/dir/${startPoint}/${endPoint}/?travelmode=walking`;
           window.open(googleMapsUrl, '_blank');
           
           this.showRouteInfo(name, 'multimodal', showCustomModal);

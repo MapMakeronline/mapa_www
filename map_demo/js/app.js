@@ -702,10 +702,10 @@ async function addGeoJsonLine(map, {
           
           // Pokaż niestandardowy dialog wyboru formatu
           const isKML = await showCustomModal({
-            title: 'Wybór formatu eksportu',
-            message: 'W jakim formacie chcesz pobrać trasę?',
-            confirmText: 'KML (Google Maps)',
-            cancelText: 'Obraz PNG'
+            title: 'Format pobierania',
+            message: 'Jak chcesz zapisać trasę szlaku?',
+            confirmText: '📱 KML dla nawigacji',
+            cancelText: '🖼️ PNG jako obraz'
           });
           
           downloadCurrentRoute(isKML ? 'kml' : 'png');
@@ -714,10 +714,10 @@ async function addGeoJsonLine(map, {
       } else if(currentItem) {
         // Pokaż niestandardowy dialog wyboru formatu
         const isKML = await showCustomModal({
-          title: 'Wybór formatu eksportu',
-          message: 'W jakim formacie chcesz pobrać trasę?',
-          confirmText: 'KML (Google Maps)',
-          cancelText: 'Obraz PNG'
+          title: 'Format pobierania',
+          message: 'Jak chcesz zapisać trasę szlaku?',
+          confirmText: '📱 KML dla nawigacji',
+          cancelText: '🖼️ PNG jako obraz'
         });
         
         downloadCurrentRoute(isKML ? 'kml' : 'png');

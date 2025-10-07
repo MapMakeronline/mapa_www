@@ -1,6 +1,58 @@
-# Interaktywna Mapa WWW
+# Interaktywna Mapa Szlaków Wałbrzyskich
 
-Interaktywna aplikacja webowa do wizualizacji i animacji szlaków pieszych w Wałbrzychu. Projekt umożliwia przeglądanie tras, animowane śledzenie szlaków z dynamiczną kamerą oraz interaktywne zarządzanie.
+Zaawansowana interaktywna mapa szlaków turystycznych w rejonie Wałbrzycha z funkcjonalnościami animacji, eksportu i wyszukiwania. Aplikacja umożliwia eksplorację tras turystycznych, animowane śledzenie kamerą oraz eksport do wielu formatów.
+
+## 🎯 Kluczowe Funkcjonalności
+
+### 🗺️ Interaktywna Mapa
+- Mapbox GL JS z obsługą 3D terrain
+- Animowana kamera śledząca trasę
+- Kontrola prędkości odtwarzania (0.5× - 2.25×)
+- Timeline z precyzyjnym pozycjonowaniem
+- Responsywny design (desktop/mobile)
+
+### 📤 Eksport Wieloformatowy
+- **PNG Export**: Wysokiej jakości zrzuty mapy z informacjami o trasie
+- **KML Export**: Export do Google Maps (tryb jazdy samochodem do początku szlaku)
+- **GPX Export**: Standardowy format GPS dla urządzeń nawigacyjnych
+
+### 🔍 Wyszukiwanie
+- Inteligentne wyszukiwanie szlaków po nazwie
+- Filtrowanie według typu i trudności
+- Wyszukiwanie miejsc i atrakcji
+
+### 🎨 Interfejs Użytkownika
+- Ciemny motyw z płynną animacją
+- Sidebar z listą szlaków
+- FAB menu dla urządzeń mobilnych
+- Backdrop blur effects
+
+## 🏗️ Architektura Techniczna
+
+### Modułowa Struktura JavaScript
+```
+map_demo/
+├── js/
+│   ├── app.js                 # Główna aplikacja
+│   ├── config.*.js            # Konfiguracja (local/UI)
+│   └── lib/
+│       ├── route-export.js              # Klasa RouteExporter
+│       ├── route-export-integration.js  # Integracja wsteczna
+│       ├── map-helpers.js              # Pomocniki mapy
+│       └── trail-images.js             # Mapowanie obrazów szlaków
+```
+
+### Technologie i Biblioteki
+- **Mapbox GL JS v3.0**: Renderowanie mapy z preserveDrawingBuffer
+- **Turf.js**: Obliczenia geometryczne
+- **Canvas API**: Generowanie PNG z overlayami
+- **Fetch API**: Asynchroniczne ładowanie danych GeoJSON
+- **ES6+ Modules**: Modułowa architektura
+
+### Dane i Zasoby
+- **GeoJSON**: Dane szlaków z OpenStreetMap
+- **Trail Images**: 400+ zdjęć szlaków z inteligentnym mapowaniem
+- **CSS3**: Zaawansowane animacje i responsywność
 
 ![Interaktywna Mapa Szlaków Pieszych](https://storage.googleapis.com/maps-mapmaker-production-293411-demo/map_demo/mapa.html)
 
@@ -88,20 +140,48 @@ Aby osadzić mapę w WordPress za pomocą Elementora, dodaj blok HTML i wstaw od
 
 ## 🚀 Funkcjonalności
 
-- Interaktywna mapa oparta na MapBox GL JS
-- Animowane śledzenie szlaków z podążającą kamerą
-- Lista dostępnych szlaków z możliwością wyboru
-- Kontrola odtwarzania (pauza, ponowne odtwarzanie, prędkość, przewijanie)
-- Automatyczne śledzenie trasy z obrotem kamery zgodnym z kierunkiem ruchu
-- Responsywny design działający na urządzeniach mobilnych i desktopowych
-- Możliwość pobierania danych szlaków
+### 📍 Eksploracja Szlaków
+- **Interaktywna mapa**: Mapbox GL JS z renderowaniem 3D terrain
+- **400+ szlaków**: Kompletna baza szlaków Wałbrzycha z OpenStreetMap
+- **Inteligentne obrazy**: Automatyczne mapowanie zdjęć szlaków na podstawie nazw
+- **Wyszukiwanie**: Zaawansowane filtrowanie szlaków, miejsc i atrakcji
 
-## 🛠️ Technologie
+### 🎬 Animacja i Kamera
+- **Dynamiczne śledzenie**: Kamera podąża za trasą z automatycznym obrotem
+- **Kontrola prędkości**: 4 poziomy (0.5× - 2.25×)
+- **Timeline**: Precyzyjne pozycjonowanie w czasie rzeczywistym
+- **Smooth transitions**: Płynne przejścia między szlakami
 
-- HTML5, CSS3, JavaScript
-- [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/) - silnik map
-- [Turf.js](https://turfjs.org/) - analiza i manipulacja danymi geojson
-- GeoJSON - format przechowywania danych geograficznych
+### 📤 Export Wieloformatowy
+- **PNG Export**: Wysokiej jakości zrzuty mapy z overlayami informacyjnymi
+- **KML Export**: Integracja z Google Maps (tryb jazdy do początku szlaku)
+- **GPX Export**: Format GPS dla urządzeń nawigacyjnych
+- **Metadata preservation**: Zachowywanie informacji o trasie w eksportowanych plikach
+
+### 📱 Responsywny Design
+- **Desktop**: Pełnoprawny interface z sidebar i timeline
+- **Mobile**: Zoptymalizowany FAB menu i dotykowe sterowanie
+- **Accessibility**: Pełne wsparcie dla screen readerów i klawiatury
+- **Dark theme**: Elegancki ciemny motyw z backdrop blur effects
+
+## 🛠️ Stack Technologiczny
+
+### Frontend Core
+- **HTML5/CSS3**: Semantyczny markup z zaawansowanym CSS Grid/Flexbox
+- **JavaScript ES6+**: Modułowa architektura z async/await
+- **Canvas API**: Renderowanie PNG z overlayami
+- **Fetch API**: Asynchroniczne ładowanie danych GeoJSON
+
+### Biblioteki Mapowe
+- **[Mapbox GL JS v3.0](https://docs.mapbox.com/mapbox-gl-js/)**: Renderowanie WebGL z preserveDrawingBuffer
+- **[Turf.js](https://turfjs.org/)**: Obliczenia geometryczne i analiza przestrzenna
+- **GeoJSON**: Format danych geograficznych z metadanymi
+
+### Architektura Modułowa
+- **RouteExporter Class**: Centralizowany system eksportu (PNG/KML/GPX)
+- **Map Helpers**: Biblioteka pomocnicza dla operacji mapowych
+- **Trail Images**: Inteligentne mapowanie obrazów szlaków
+- **Config System**: Rozdzielona konfiguracja (local/UI/example)
 
 ## 📋 Wymagania
 
