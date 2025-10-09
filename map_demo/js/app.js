@@ -605,9 +605,22 @@ async function addGeoJsonLine(map, {
       const dialog = document.createElement('div');
       dialog.className = 'custom-modal-dialog';
       
+      // Header z tytułem i przyciskiem X
+      const header = document.createElement('div');
+      header.className = 'custom-modal-header';
+      
       const titleEl = document.createElement('div');
       titleEl.className = 'custom-modal-title';
       titleEl.textContent = title;
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'custom-modal-close';
+      closeBtn.innerHTML = '✕';
+      closeBtn.setAttribute('aria-label', 'Zamknij');
+      closeBtn.setAttribute('title', 'Zamknij');
+      
+      header.appendChild(titleEl);
+      header.appendChild(closeBtn);
       
       const content = document.createElement('div');
       content.className = 'custom-modal-content';
@@ -630,7 +643,7 @@ async function addGeoJsonLine(map, {
       
       buttons.appendChild(confirmBtn);
       
-      dialog.appendChild(titleEl);
+      dialog.appendChild(header);
       dialog.appendChild(content);
       dialog.appendChild(buttons);
       overlay.appendChild(dialog);
@@ -651,6 +664,18 @@ async function addGeoJsonLine(map, {
       if (cancelBtn) {
         cancelBtn.addEventListener('click', () => closeModal(false));
       }
+      
+      // Obsługa przycisku X (zamknij modal bez wyboru)
+      closeBtn.addEventListener('click', () => closeModal(null));
+      
+      // Obsługa klawisza Escape
+      function handleEscape(e) {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', handleEscape);
+          closeModal(null);
+        }
+      }
+      document.addEventListener('keydown', handleEscape);
     });
   }
 
@@ -708,7 +733,10 @@ async function addGeoJsonLine(map, {
             cancelText: '🖼️ PNG jako obraz'
           });
           
-          downloadCurrentRoute(isKML ? 'kml' : 'png');
+          // Jeśli użytkownik zamknął modal (X), nie rób nic
+          if (isKML !== null) {
+            downloadCurrentRoute(isKML ? 'kml' : 'png');
+          }
           return;
         }
       } else if(currentItem) {
@@ -720,7 +748,10 @@ async function addGeoJsonLine(map, {
           cancelText: '🖼️ PNG jako obraz'
         });
         
-        downloadCurrentRoute(isKML ? 'kml' : 'png');
+        // Jeśli użytkownik zamknął modal (X), nie rób nic
+        if (isKML !== null) {
+          downloadCurrentRoute(isKML ? 'kml' : 'png');
+        }
       }
     });
   }

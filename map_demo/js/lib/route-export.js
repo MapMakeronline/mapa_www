@@ -129,6 +129,11 @@ class RouteExporter {
         cancelText: 'Tylko szlak pieszo'
       });
 
+      // Jeśli użytkownik zamknął modal (X lub Escape), wyjdź z pętli
+      if (addDriving === null) {
+        break;
+      }
+
       // Generuj i pobierz odpowiedni KML
       let filename = name;
       let kmlContent;
@@ -153,7 +158,8 @@ class RouteExporter {
         cancelText: 'Nie, dziękuję'
       });
       
-      if (openInGoogleMaps) {
+      // Jeśli użytkownik nie zamknął modal (X), sprawdź czy chce otworzyć Google Maps
+      if (openInGoogleMaps === true) {
         await this.openRouteInGoogleMaps(geojson, name, userLocation, modalFn, addDriving);
       }
 
@@ -165,8 +171,9 @@ class RouteExporter {
         cancelText: 'Koniec'
       });
       
-      if (!continueChoosing) {
-        break; // Wyjdź z pętli
+      // Jeśli użytkownik zamknął modal (X) lub wybrał "Koniec", wyjdź z pętli
+      if (continueChoosing === null || continueChoosing === false) {
+        break;
       }
     }
   }

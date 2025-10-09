@@ -542,8 +542,40 @@ body { overflow-x: hidden; }
 .custom-modal-title {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 16px;
   color: #00FFFF;
+  flex: 1;
+}
+
+/* Header z tytułem i przyciskiem X */
+.custom-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* Przycisk X do zamykania */
+.custom-modal-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ff4444;
+  transform: scale(1.1);
 }
 
 .custom-modal-content {
