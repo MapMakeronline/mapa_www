@@ -37,50 +37,147 @@
     .btn:disabled { opacity:.5; cursor:not-allowed; }
     /* progress bar removed */
   
-    /* Timeline slider - podstawowe style */
-    #timelineWrap{
-      position:absolute; z-index:5; display:none; align-items:center; gap:10px;
-      padding:8px 12px; border-radius:999px; background:rgba(0,0,0,.45);
-      box-shadow:0 4px 16px rgba(0,0,0,.3); backdrop-filter: blur(6px);
-    }
-    
-    /* Pozycjonowanie na desktopie */
+/* CONTROLS BAR - stabilny layout z flex */
+#timelineWrap {
+  position: absolute;
+  z-index: 5;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.45);
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+  color: #fff;
+}
+
+#timelineWrap,
+#timelineWrap * {
+  color: #fff;
+}    /* Pozycjonowanie na desktopie */
     @media screen and (min-width: 1025px) {
       #timelineWrap {
-        position:absolute !important; 
-        left:20px !important; 
-        bottom:26px !important; 
-        transform:none !important;
-        width:48%;
+        position: absolute !important;
+        left: 20px !important;
+        bottom: 26px !important;
+        transform: none !important;
+        width: 48%;
+        min-width: 480px;
       }
     }
     
-    /* Ujednolicone style dla przycisków i kontrolek na pasku odtwarzania */
+    /* PRZYCISKI I SELECT - stała szerokość */
     #timelineWrap .btn.chip,
-    #timelineWrap select.chip,
-    #timelineWrap #timeCounter.chip {
+    #timelineWrap select.chip {
+      flex: 0 0 auto;
       min-width: 36px;
       height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex: 0 0 auto;
       padding: 0 10px;
       white-space: nowrap;
+      box-sizing: border-box;
     }
     
     #timelineWrap .btn.chip.icon {
-      min-width: 36px;
+      flex: 0 0 36px;
       width: 36px;
+      padding: 0;
     }
-    #timeline{ width:100%; -webkit-appearance:none; appearance:none; height:6px; border-radius:999px;
-      background:linear-gradient(to right, #fff 0%, #fff 0%, rgba(255,255,255,.25) 0%);
-      outline:none;
+    
+    /* LICZNIK CZASU - stałe miejsce 11ch */
+#timelineWrap #timeCounter.chip {
+  flex: 0 0 11ch;
+  min-width: 11ch;
+  max-width: 11ch;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: #fff;
+}    #timelineWrap #timeCounter .now,
+    #timelineWrap #timeCounter .sep,
+    #timelineWrap #timeCounter .total {
+      display: inline;
     }
-    #timeline::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
-      background:#fff; border:0; box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer;
+    
+    /* SUWAK - pełna dostępna szerokość */
+    #timeline {
+      flex: 1;
+      min-width: 0;
+      max-width: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      height: 10px;
+      background: transparent;
+      margin: 0;
+      outline: none;
+      box-sizing: border-box;
     }
-    #timeline::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:#fff; border:0; cursor:pointer; }
+    
+    /* TRACK - zaokrąglone końce */
+    #timeline::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 999px;
+      border: none;
+    }
+    
+    #timeline::-moz-range-track {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 999px;
+      border: none;
+    }
+    
+    /* THUMB - wycentrowany */
+#timeline::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 0;
+  margin-top: -4px;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.15);
+  cursor: pointer;
+}
+
+#timeline::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.15);
+  cursor: pointer;
+}    /* HOVER */
+    #timeline:focus {
+      outline: none;
+    }
+    
+    #timeline:hover::-webkit-slider-runnable-track,
+    #timeline:hover::-moz-range-track {
+      background: rgba(255,255,255,0.35);
+    }
+    
+    /* UKRYWANIE LICZNIKA BEZ WPŁYWU NA LAYOUT */
+    #timelineWrap.hidden-counter #timeCounter {
+      visibility: hidden;
+    }
 
     /* === Responsive tweaks === */
     #sidebarToggle{
@@ -105,8 +202,6 @@
       body.sidebar-open #sidebar { transform: translateX(0); }
       #sidebarToggle { display:flex; }
       #timelineWrap{ width: 90%; left:50%; transform: translateX(-50%); bottom: 14px; }
-      #timeline::-webkit-slider-thumb{ width:22px; height:22px; }
-      #timeline::-moz-range-thumb{ width:22px; height:22px; }
       .btn { padding:10px 14px; }
       .item { padding:10px; }
       .title { font-size:18px; }
@@ -172,61 +267,6 @@
       backdrop-filter: blur(6px);
     }
 
-  
-    /* Speed selector */
-    #speedSelect{
-      height:32px; border-radius:8px; border:1px solid rgba(255,255,255,.25);
-      background:rgba(0,0,0,.35); color:#fff; padding:0 8px;
-      font-weight:600; cursor:pointer;
-    }
-    #timelineWrap{ gap:12px; }
-    @media (max-width: 768px){
-      #timelineWrap{ flex-direction:column; align-items:stretch; gap:10px; }
-      #speedSelect{ order:-1; align-self:flex-end; }
-    }
-
-  
-    /* Time counter */
-    #timeCounter{
-      flex:0 0 auto;
-      display:flex; align-items:center; gap:8px;
-      padding:6px 10px; border-radius:8px;
-      background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.25);
-      color:#fff; font-weight:600;
-    }
-    #timeCounter .now{ opacity:.9; }
-    #timeCounter .sep{ opacity:.5; }
-    #timeCounter .total{ opacity:.9; }
-
-    /* place counter inline on desktop, above slider on mobile */
-    #timelineWrap{ gap:12px; }
-    @media (max-width: 768px){
-      #timelineWrap{ flex-direction:column; align-items:stretch; gap:10px; }
-      #timeCounter{ order:-1; align-self:flex-start; }
-    }
-
-  
-    /* === Responsive reflow: controls row above slider (mobile/tablet) === */
-    @media (max-width: 1024px){
-      #timelineWrap{
-        display:flex;
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 10px;
-      }
-      #btnPause, #speedSelect, #timeCounter{
-        order: 0;
-        align-self: auto;
-      }
-      #timeline{
-        order: 1;
-        flex: 1 0 100%;
-      }
-    }
-
-  
     /* === Control chips === */
     .chip{
       background: rgba(0,0,0,.45);
@@ -236,17 +276,8 @@
     }
     #btnPause.chip{ padding:8px 14px; }
     #speedSelect.chip{ height:34px; padding:0 10px; }
-    #timeCounter.chip{ padding:6px 12px; }
 
-    /* Ensure chips don't visually merge with the bar */
-    #timelineWrap{ padding-right: 0; }
-    body.timeline-visible #timelineWrap{ padding-right: 84px; } /* reserve space for FAB */
-    body.timeline-visible #fabMenu{ bottom: 132px; right: 16px; z-index: 10; } /* move FAB up a bit more */
-
-    /* Subtle separators on mobile row */
-    @media (max-width: 1024px){
-      #btnPause, #speedSelect, #timeCounter{ margin-right: 4px; }
-    }
+    /* Licznik czasowy nie może być powtórzony - używamy tylko tego z górnej sekcji */
 
   
     /* Prevent page scroll & layout shift when sheet is open */

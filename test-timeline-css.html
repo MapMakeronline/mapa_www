@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Timeline CSS</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #333; color: white; }
+        
+        /* Skopiowane style z głównego CSS */
+        #timelineWrap{
+          position:absolute; z-index:5; display:flex; align-items:center; gap:10px;
+          padding:8px 12px; border-radius:999px; background:rgba(0,0,0,.45);
+          box-shadow:0 4px 16px rgba(0,0,0,.3); backdrop-filter: blur(6px);
+        }
+        
+        #timeline{ 
+          width:100%; 
+          max-width: 300px;
+          min-width: 150px;
+          -webkit-appearance:none; 
+          appearance:none; 
+          height:6px; 
+          border-radius:999px;
+          background:linear-gradient(to right, #fff 0%, #fff 30%, rgba(255,255,255,.25) 30%);
+          outline:none;
+        }
+        
+        #timeline::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 6px;
+          border-radius: 999px;
+          background: transparent;
+        }
+        
+        #timeline::-moz-range-track {
+          width: 100%;
+          height: 6px;
+          border-radius: 999px;
+          background: transparent;
+          border: none;
+        }
+        
+        #timeline::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
+          background:#fff; border:0; box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer;
+        }
+        #timeline::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:#fff; border:0; cursor:pointer; }
+
+        .chip { 
+            background: rgba(0,0,0,.45);
+            border: 1px solid rgba(255,255,255,.25);
+            color: white; 
+            padding: 8px 12px; 
+            border-radius: 8px; 
+            margin: 0 4px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px){
+          #timeline{ max-width: 250px; min-width: 120px; }
+        }
+        @media (max-width: 768px){
+          #timeline{ max-width: 180px; min-width: 100px; }
+          #timeline::-webkit-slider-thumb{ width:22px; height:22px; }
+          #timeline::-moz-range-thumb{ width:22px; height:22px; }
+        }
+
+        /* Flex test dla mobile layout */
+        @media (max-width: 1024px){
+          #timelineWrap{
+            display:flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+          }
+          .controls { order: 0; }
+          #timeline{
+            order: 1;
+            flex: 0 0 auto;
+            width: 100%;
+          }
+        }
+
+        /* Test layout */
+        #timelineWrap {
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        .test-section {
+            margin: 40px 0;
+            padding: 20px;
+            border: 1px solid #666;
+            border-radius: 8px;
+        }
+        
+        .viewport-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="viewport-info">
+        Viewport: <span id="viewport"></span>
+    </div>
+    
+    <h1>Test Timeline CSS</h1>
+    
+    <div class="test-section">
+        <h2>Desktop Layout (>1024px)</h2>
+        <div id="timelineWrap">
+            <button class="chip controls">Pauza</button>
+            <button class="chip controls">⟲</button>
+            <select class="chip controls">
+                <option>1×</option>
+            </select>
+            <div class="chip controls">00:30 / 02:15</div>
+            <input id="timeline" type="range" min="0" max="1000" step="1" value="300"/>
+        </div>
+        <p>Suwak powinien mieć max-width: 300px, min-width: 150px</p>
+    </div>
+
+    <script>
+        function updateViewport() {
+            document.getElementById('viewport').textContent = window.innerWidth + 'x' + window.innerHeight;
+        }
+        
+        updateViewport();
+        window.addEventListener('resize', updateViewport);
+        
+        // Symulacja paintSlider z app.js
+        const timeline = document.getElementById('timeline');
+        function paintSlider(value) {
+            const pct = (value / 10).toFixed(1);
+            timeline.style.background = `linear-gradient(to right, #fff 0%, #fff ${pct}%, rgba(255,255,255,.25) ${pct}%)`;
+        }
+        
+        timeline.addEventListener('input', (e) => {
+            paintSlider(e.target.value);
+        });
+        
+        // Initial paint
+        paintSlider(timeline.value);
+    </script>
+</body>
+</html>
