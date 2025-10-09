@@ -24,6 +24,11 @@ const map = new mapboxgl.Map({
 });
 map.addControl(new mapboxgl.NavigationControl({visualizePitch:true}), 'top-right');
 
+// hard-kill any search controls that might be injected by Mapbox or older code
+document.querySelectorAll(
+  '.mapboxgl-ctrl-geocoder, .searchFab, .mapboxgl-ctrl button[aria-label*="Search"], .mapboxgl-ctrl button[aria-label*="Szukaj"]'
+).forEach(n => n.remove());
+
 // Udostępnij mapę i dane globalnie dla modułów
 window.map = map;
 window.hikingData = hikingData;
@@ -99,6 +104,11 @@ async function addGeoJsonLine(map, {
 
 (async () => {
   await new Promise(resolve => map.on('load', resolve));
+
+  // hard-kill any search controls that might be injected after map load
+  document.querySelectorAll(
+    '.mapboxgl-ctrl-geocoder, .searchFab, .mapboxgl-ctrl button[aria-label*="Search"], .mapboxgl-ctrl button[aria-label*="Szukaj"]'
+  ).forEach(n => n.remove());
 
   map.addSource('mapbox-dem', { type:'raster-dem', url:'mapbox://mapbox.terrain-rgb', tileSize:512, maxzoom:14 });
   map.setTerrain({ source:'mapbox-dem', exaggeration: 1.5 });
@@ -220,6 +230,10 @@ async function addGeoJsonLine(map, {
     div.setAttribute('role','option');
     div.dataset.idx = String(item.idx);
     div.dataset.id = String(item.f.id ?? item.idx); // Dodaj data-id dla wyszukiwania
+    
+    // Dodaj feature do mapy dla wyszukiwania
+    const featureId = item.f.id ?? item.idx;
+    featureById.set(String(featureId), item.f);
     
     // Tworzenie nazwy pliku ze zdjęciem na podstawie nazwy szlaku (slug)
     const originalName = item.name;
@@ -1022,6 +1036,9 @@ if (!window.CONFIG?.MAPBOX_TOKEN) {
 
 let searchTimeout;
 
+// Mapa do szybkiego dostępu do features po ID
+const featureById = new Map();
+
 // Inicjalizacja wyszukiwarki po załadowaniu DOM
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('searchInput');
@@ -1155,7 +1172,10 @@ function zoomToItem(el){
   }
 
   // zaznacz aktywny
-  listEl.querySelectorAll('.item.active').forEach(n => n.classList.remove('active'));
+  const listEl = document.getElementById('list');
+  if (listEl) {
+    listEl.querySelectorAll('.item.active').forEach(n => n.classList.remove('active'));
+  }
   el.classList.add('active');
   el.scrollIntoView({ block: 'nearest' });
 }

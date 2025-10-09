@@ -63,25 +63,16 @@
 }
 
 /* === UKRYCIE PŁYWAJĄCYCH ELEMENTÓW WYSZUKIWANIA === */
-.mapboxgl-ctrl-geocoder {
-  display: none !important;
-}
-
-.searchFab {
+.mapboxgl-ctrl-geocoder,
+.searchFab,
+.mapboxgl-ctrl button[aria-label*="Search"],
+.mapboxgl-ctrl button[aria-label*="Szukaj"] {
   display: none !important;
 }
 
 /* === WYSZUKIWARKA W PANELU BOCZNYM === */
 #list .item.hide {
   display: none !important;
-}
-
-#list .item .name .highlight {
-  background-color: #ffeb3b;
-  color: #000;
-  font-weight: bold;
-  padding: 1px 2px;
-  border-radius: 2px;
 }
 
     /* Pozycjonowanie na desktopie */
@@ -701,7 +692,8 @@ body { overflow-x: hidden; }
   animation: slideDown 0.25s ease-in forwards;
 }
 
-/* === Wyszukiwarka === */
+/* === Wyszukiwarka === USUNIĘTA - zastąpiona searchBox w panelu bocznym */
+/*
 /* Główny kontener wyszukiwarki */
 .search-control {
   position: absolute;
@@ -954,6 +946,7 @@ body { overflow-x: hidden; }
   from { transform: translateY(0); opacity: 1; }
   to { transform: translateY(10px); opacity: 0; }
 }
+*/
 
 /* Wyszukiwarka w panelu bocznym */
 #searchBox{
@@ -978,10 +971,84 @@ body { overflow-x: hidden; }
   background:rgba(255,255,255,.15);
 }
 #list .item.hide{ display:none !important; }
-#list .item .name .highlight{ background: rgba(255,255,255,.25); border-radius:4px; padding:0 2px; }
 
 .actions-top{
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* neutralne style kart i aktywnej karty */
+#list .item{
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.14);
+  box-shadow: none;
+}
+#list .item.active{
+  background: rgba(0,0,0,.35) !important;
+  border-color: rgba(255,255,255,.14) !important;
+  box-shadow: none !important;
+}
+#list .item:focus,
+#list .item:focus-visible{ outline: none !important; }
+
+/* jeśli używamy highlight dla tekstu, niech będzie delikatny */
+#list .item .name .highlight{
+  background: rgba(255,255,255,.18);
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+/* kontener wyszukiwarki – jedna linia, środkowanie pionowe */
+#searchBox{
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+/* pole i X nie łamią się, X nie „spada" niżej */
+#searchInput{
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 8px 10px;
+}
+
+#searchClear{
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  line-height: 1;
+  vertical-align: middle;
+}
+#searchClear > svg,
+#searchClear > span{
+  display: block;
+}
+
+/* awaryjnie wyłącz wpływ float/position, które mogły zepchnąć X w dół */
+#searchClear{ position: static !important; float: none !important; }
+
+/* ukryj natywny X w polu search (WebKit/Chromium/Safari) */
+#searchInput[type="search"]::-webkit-search-cancel-button{
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+/* Edge/IE dziedziczą po MS */
+#searchInput::-ms-clear,
+#searchInput::-ms-reveal{
+  display: none;
+  width: 0;
+  height: 0;
+}
+/* na wszelki wypadek wyłącz własne tło/cancel */
+#searchInput{
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
