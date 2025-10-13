@@ -97,6 +97,70 @@ function updateSavedCount(){
 }
 // === KONIEC SAVED TRAILS ===
 
+// === THEME SYSTEM ===
+const THEME_KEY = 'mm_theme_v1'; // 'light' | 'dark' | null (system)
+function getSystemTheme(){ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+function getSavedTheme(){ return localStorage.getItem(THEME_KEY); }
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme); }
+function setTheme(theme){ localStorage.setItem(THEME_KEY, theme); applyTheme(theme); }
+
+// start: jeśli brak zapisu → system; jeśli jest zapis → użyj zapisu
+(function initTheme(){
+  const saved = getSavedTheme();
+  applyTheme(saved || getSystemTheme());
+  // nasłuchiwanie zmiany systemowego (tylko gdy user nie nadpisał)
+  if (!saved && window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      applyTheme(e.matches ? 'dark' : 'light');
+    });
+  }
+})();
+
+function ensureThemeToggle(){
+  const host = document.querySelector('.controlsBar') || document.querySelector('#timelineWrap') || document.body;
+  if (!host.querySelector('.themeToggle')) {
+    const btn = document.createElement('button');
+    btn.className = 'themeToggle';
+    btn.id = 'themeToggle';
+    btn.type = 'button';
+    btn.title = 'Przełącz motyw (T)';
+    // ikona zależna od motywu
+    const curr = document.documentElement.getAttribute('data-theme') || getSystemTheme();
+    btn.textContent = curr === 'dark' ? '🌙' : '☀️';
+    btn.addEventListener('click', ()=>{
+      const now = document.documentElement.getAttribute('data-theme') || getSystemTheme();
+      const next = (now === 'dark') ? 'light' : 'dark';
+      setTheme(next);
+      btn.textContent = next === 'dark' ? '🌙' : '☀️';
+      // opcjonalnie podbij kolory własnych warstw mapy
+      safeUpdateMapLayerColors(next);
+    });
+    host.appendChild(btn);
+  }
+  // skrót klawiatury T
+  window.addEventListener('keydown', (e)=>{
+    if (e.key.toLowerCase() === 't' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      const now = document.documentElement.getAttribute('data-theme') || getSystemTheme();
+      const next = (now === 'dark') ? 'light' : 'dark';
+      setTheme(next);
+      const b = document.getElementById('themeToggle'); if (b) b.textContent = next === 'dark' ? '🌙' : '☀️';
+      safeUpdateMapLayerColors(next);
+    }
+  }, { passive: true });
+}
+
+// (opcjonalnie) dostosuj kolory własnych warstw mapy (nie zmieniaj stylu mapbox)
+function safeUpdateMapLayerColors(theme){
+  if (!window.map) return;
+  try {
+    const lineColor = theme === 'dark' ? '#9cf' : '#3366ff';
+    if (map.getLayer('route-track')) map.setPaintProperty('route-track', 'line-color', lineColor);
+    if (map.getLayer('route-matched')) map.setPaintProperty('route-matched', 'line-color', theme==='dark' ? '#91c3ff' : '#0055ff');
+    // jeśli masz warstwy symbol/label po swojej stronie, zaktualizuj je podobnie
+  } catch {}
+}
+// === KONIEC THEME SYSTEM ===
+
 function getStartEndFromGeometry(geometry){
   if (!geometry) return null;
   if (geometry.type === 'LineString'){
@@ -530,6 +594,9 @@ async function addGeoJsonLine(map, {
 
   // === SAVED TRAILS INITIALIZATION ===
   ensureListHeader();
+  
+  // === THEME TOGGLE INITIALIZATION ===
+  ensureThemeToggle();
   
   // Delegacja zdarzeń dla serduszek
   const listEl = document.getElementById('list');
