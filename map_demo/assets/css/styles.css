@@ -1242,3 +1242,27 @@ body { overflow-x: hidden; }
   background-repeat: no-repeat;
   background-position: right 8px center;
 }
+
+/* === SAVED TRAILS STYLES === */
+.listHeader{ display:flex; align-items:center; gap:8px; padding:8px; }
+.chip-switch{ display:inline-flex; gap:6px; }
+.chip-switch button{
+  padding:6px 10px; border-radius:10px;
+  border:1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.08); color:#fff; font-weight:600; cursor:pointer;
+}
+.chip-switch button.on{
+  background: rgba(255,255,255,.18);
+  border-color: rgba(255,255,255,.35);
+}
+.savedCount{ opacity:.8; font-weight:600; }
+.item .saveBtn{
+  margin-left:auto; /* dociągnij przycisk do prawej w wierszu nagłówka */
+  width:32px; height:32px; border-radius:8px;
+  border:1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.08);
+  color:#fff; font-size:16px; line-height:1;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.item .saveBtn[aria-pressed="true"]{ background: rgba(255,255,255,.16); }
+.item .saveBtn:focus{ outline:2px solid rgba(255,255,255,.45); outline-offset:2px; }

@@ -42,6 +42,61 @@ function lengthOfGeometryKm(geometry){
 
 // === KONIEC FUNKCJI OBLICZANIA DŁUGOŚCI ===
 
+// === SAVED TRAILS STORAGE ===
+const SAVED_KEY = 'mm_saved_trails_v1';
+const FILTER_KEY = 'mm_saved_filter';
+
+function loadSaved(){
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveSaved(arr){
+  localStorage.setItem(SAVED_KEY, JSON.stringify(arr || []));
+}
+function getSavedSet(){
+  return new Set(loadSaved().map(x => String(x.id)));
+}
+function isSaved(id){
+  return getSavedSet().has(String(id));
+}
+function toggleSaved({id, name}){
+  id = String(id);
+  const curr = loadSaved();
+  const idx = curr.findIndex(x => String(x.id) === id);
+  if (idx >= 0) { curr.splice(idx,1); }
+  else { curr.push({ id, name: name || '', ts: Date.now() }); }
+  saveSaved(curr);
+  return curr;
+}
+function getFilter(){ return localStorage.getItem(FILTER_KEY) || 'all'; }
+function setFilter(v){ localStorage.setItem(FILTER_KEY, v); }
+
+function ensureListHeader(){
+  const side = document.querySelector('#sidebar') || document.body;
+  if (!side.querySelector('.listHeader')){
+    const hdr = document.createElement('div');
+    hdr.className = 'listHeader';
+    hdr.innerHTML = `
+      <div class="chip-switch" id="savedFilter" role="group" aria-label="Filtr tras">
+        <button type="button" data-mode="all">Wszystkie</button>
+        <button type="button" data-mode="saved">Zapisane <span class="savedCount"></span></button>
+      </div>
+    `;
+    side.insertBefore(hdr, side.querySelector('#list'));
+  }
+  updateSavedCount();
+  // ustaw stan przycisków
+  const mode = (new URLSearchParams(location.search)).get('saved')==='true' ? 'saved' : getFilter();
+  setFilter(mode);
+  [...document.querySelectorAll('#savedFilter button')].forEach(b => b.classList.toggle('on', b.dataset.mode===mode));
+}
+function updateSavedCount(){
+  const n = loadSaved().length;
+  const el = document.querySelector('.savedCount');
+  if (el) el.textContent = `(${n})`;
+}
+// === KONIEC SAVED TRAILS ===
+
 function getStartEndFromGeometry(geometry){
   if (!geometry) return null;
   if (geometry.type === 'LineString'){
@@ -453,36 +508,79 @@ async function addGeoJsonLine(map, {
     const kmTrack = lengthOfGeometryKm(item.f.geometry);
     const se = getStartEndFromGeometry(item.f.geometry);
     
+    const itemId = item.f.id || item.idx;
+    const savedNow = isSaved(itemId);
+    
+    div.setAttribute('data-id', itemId);
     div.innerHTML = `
       <div class="trail-image">
         <img src="${trailImage}" onerror="console.log('Błąd ładowania obrazu:', this.src); this.onerror=null; this.src='${defaultImage}';" alt="${item.name}">
       </div>
       <div class="trail-content">
         <span class="sw" style="background:${ item.osmc==='blue' ? '#06c' : item.osmc==='green' ? '#0a0' : item.osmc==='yellow' ? '#e3b000' : '#d00' }"></span>
-        <div><div class="name">${item.name}</div><div class="sub trail-distance">${fmtKm(kmTrack)} km (ślad)</div></div>
+        <div>
+          <div class="name">${item.name}</div>
+          <div class="sub trail-distance">${fmtKm(kmTrack)} km</div>
+        </div>
+        <button class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
       </div>
     `;
     list.appendChild(div);
-    
-    // Asynchroniczne doładowanie dystansu z map matching
-    const distEl = div.querySelector('.trail-distance');
-
-    mapMatchTrail(item.f.geometry)
-      .then(geom => {
-        const kmMatched = lengthOfGeometryKm(geom);
-        if (isFinite(kmMatched) && Math.abs(kmMatched - kmTrack) > 0.01) {
-          distEl.textContent = `${fmtKm(kmTrack)} km (ślad) • ~${fmtKm(kmMatched)} km pieszo`;
-        }
-      })
-      .catch(() => {
-        if (!se) return;
-        fetchWalkingDistanceKm(se.start, se.end).then(kmWalk => {
-          if (kmWalk != null) {
-            distEl.textContent = `${fmtKm(kmTrack)} km (ślad) • ~${fmtKm(kmWalk)} km pieszo`;
-          }
-        });
-      });
   }
+
+  // === SAVED TRAILS INITIALIZATION ===
+  ensureListHeader();
+  
+  // Delegacja zdarzeń dla serduszek
+  const listEl = document.getElementById('list');
+  listEl?.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.saveBtn');
+    if (!btn) return;
+    e.stopPropagation(); e.preventDefault();
+    const id = btn.getAttribute('data-id');
+    const name = btn.getAttribute('data-name') || (btn.closest('.item')?.querySelector('.name')?.textContent?.trim() || '');
+    const after = toggleSaved({id, name});
+    const on = isSaved(id);
+    btn.setAttribute('aria-pressed', on);
+    btn.textContent = on ? '♥' : '♡';
+    btn.title = on ? 'Usuń z zapisanych' : 'Zapisz trasę';
+    updateSavedCount();
+    // gdy filtr "Zapisane" aktywny – odśwież widok, by ukryć/odsłonić element
+    if (getFilter()==='saved'){
+      const show = on;
+      btn.closest('.item').style.display = show ? '' : 'none';
+    }
+  });
+  
+  // Filtr „Wszystkie/Zapisane" – nasłuch
+  document.addEventListener('click', (e)=>{
+    const b = e.target.closest('#savedFilter button[data-mode]');
+    if (!b) return;
+    const mode = b.dataset.mode; // 'all' | 'saved'
+    setFilter(mode);
+    [...document.querySelectorAll('#savedFilter button')].forEach(x => x.classList.toggle('on', x===b));
+    const saved = getSavedSet();
+    document.querySelectorAll('#list .item').forEach(el=>{
+      const id = el.getAttribute('data-id');
+      const show = (mode==='all') || (saved.has(String(id)));
+      el.style.display = show ? '' : 'none';
+    });
+  });
+  
+  // Zastosuj filtr startowy
+  const startMode = (new URLSearchParams(location.search)).get('saved')==='true' ? 'saved' : getFilter();
+  const saved = getSavedSet();
+  document.querySelectorAll('#list .item').forEach(el=>{
+    const id = el.getAttribute('data-id');
+    const show = (startMode==='all') || (saved.has(String(id)));
+    el.style.display = show ? '' : 'none';
+  });
+  // podbij liczniki/serduszka zgodnie ze stanem
+  document.querySelectorAll('#list .saveBtn').forEach(btn=>{
+    const on = isSaved(btn.getAttribute('data-id'));
+    btn.setAttribute('aria-pressed', on);
+    btn.textContent = on ? '♥' : '♡';
+  });
 
   
   // === Responsive / Sidebar toggle ===
