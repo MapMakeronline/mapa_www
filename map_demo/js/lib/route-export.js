@@ -28,6 +28,148 @@ class RouteExporter {
   }
 
   /**
+   * Pobiera punkt początkowy i końcowy trasy
+   * @param {Object} geojson - GeoJSON z geometrią trasy
+   * @returns {Object} { start: [lng,lat], end: [lng,lat] }
+   */
+  getStartEnd(geojson) {
+    if (!geojson || !geojson.geometry) return null;
+    
+    const geom = geojson.geometry;
+    
+    if (geom.type === 'LineString') {
+      const coords = geom.coordinates;
+      return {
+        start: coords[0],
+        end: coords[coords.length - 1]
+      };
+    }
+    
+    if (geom.type === 'MultiLineString') {
+      const lines = geom.coordinates;
+      if (lines.length === 0) return null;
+      
+      const firstLine = lines[0];
+      const lastLine = lines[lines.length - 1];
+      
+      return {
+        start: firstLine[0],
+        end: lastLine[lastLine.length - 1]
+      };
+    }
+    
+    return null;
+  }
+
+  /**
+   * Otwiera Google Maps z nawigacją
+   * @param {Object} options - { origin, destination, mode }
+   */
+  openGoogleDirections({ origin, destination, mode = 'driving' }) {
+    let url = 'https://www.google.com/maps/dir/?api=1';
+    
+    if (origin) {
+      url += `&origin=${origin[1]},${origin[0]}`; // lat,lng
+    }
+    
+    if (destination) {
+      url += `&destination=${destination[1]},${destination[0]}`; // lat,lng
+    }
+    
+    url += `&travelmode=${mode}`;
+    
+    window.open(url, '_blank');
+  }
+
+  /**
+   * Tworzy slug z nazwy trasy
+   */
+  createSlug(name) {
+    if (!name) return 'trasa';
+    
+    const polishChars = {
+      'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+      'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    };
+    
+    return name
+      .split('')
+      .map(char => polishChars[char] || char)
+      .join('')
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+  }
+
+  /**
+   * Eksport dojazdu samochodem do startu szlaku
+   */
+  async exportDriveToStart(geojson, name, userLocation = null) {
+    // Użyj map matching jeśli dostępne
+    let finalGeometry = geojson;
+    if (typeof mapMatchTrail === 'function') {
+      try {
+        finalGeometry = await mapMatchTrail(geojson);
+      } catch (error) {
+        console.warn('Map matching failed for drive export, using original geometry:', error);
+      }
+    }
+    
+    const points = this.getStartEnd(finalGeometry);
+    if (!points) {
+      this.showError('Nie można określić punktów trasy');
+      return;
+    }
+    
+    const slug = this.createSlug(name);
+    const filename = `dojazd_do_${slug}.kml`;
+    
+    // Pobierz KML
+    await this.exportToKML(finalGeometry, name, filename);
+    
+    // Otwórz Google Maps
+    this.openGoogleDirections({
+      origin: userLocation,
+      destination: points.start,
+      mode: 'driving'
+    });
+  }
+
+  /**
+   * Eksport przejścia pieszo szlakiem
+   */
+  async exportWalkTrail(geojson, name) {
+    // Użyj map matching jeśli dostępne
+    let finalGeometry = geojson;
+    if (typeof mapMatchTrail === 'function') {
+      try {
+        finalGeometry = await mapMatchTrail(geojson);
+      } catch (error) {
+        console.warn('Map matching failed for walk export, using original geometry:', error);
+      }
+    }
+    
+    const points = this.getStartEnd(finalGeometry);
+    if (!points) {
+      this.showError('Nie można określić punktów trasy');
+      return;
+    }
+    
+    const slug = this.createSlug(name);
+    const filename = `${slug}_pieszo.kml`;
+    
+    // Pobierz KML
+    await this.exportToKML(finalGeometry, name, filename);
+    
+    // Otwórz Google Maps
+    this.openGoogleDirections({
+      origin: points.start,
+      destination: points.end,
+      mode: 'walking'
+    });
+  }
+
+  /**
    * Metoda logowania z prefiksem
    */
   log(message, level = 'info') {
@@ -80,102 +222,49 @@ class RouteExporter {
   }
 
   /**
-   * Eksport do formatu KML
+   * Eksport do formatu KML z map matching
    */
-  async exportToKML(geojson, name, options = {}) {
+  async exportToKML(geojson, name, customFilename = null) {
     try {
-      const coords = this.extractCoordinates(geojson);
+      // Użyj map matching jeśli dostępne
+      let finalGeometry = geojson;
+      if (typeof mapMatchTrail === 'function') {
+        try {
+          finalGeometry = await mapMatchTrail(geojson);
+        } catch (error) {
+          console.warn('Map matching failed for KML export, using original geometry:', error);
+        }
+      }
+      
+      const coords = this.extractCoordinates(finalGeometry);
       if (!coords || coords.length === 0) {
         throw new Error('Brak współrzędnych do eksportu');
       }
 
-      // Pobierz lokalizację użytkownika
-      let userLocation = null;
-      try {
-        userLocation = await this.getCurrentUserLocation();
-      } catch (error) {
-        console.warn('Nie udało się uzyskać lokalizacji użytkownika:', error);
-      }
-
-      // Uruchom pętlę wyboru opcji
-      await this.showKMLOptionsLoop(geojson, name, userLocation, options);
+      // Generuj KML bez pokazywania modali
+      const kmlContent = this.generateKMLContent(coords, name);
       
-      return { success: true, format: 'kml' };
+      // Użyj custom filename lub domyślnego
+      const filename = customFilename || `${this.createSlug(name)}.kml`;
+      
+      // Pobierz plik
+      this.downloadFile(kmlContent, filename, 'application/vnd.google-earth.kml+xml');
+      
+      this.log(`Eksport KML zakończony: ${filename}`);
       
     } catch (error) {
-      console.error('Błąd eksportu KML:', error);
-      throw error;
+      this.log(`Błąd podczas eksportu KML: ${error.message}`, 'error');
+      this.showError(`Nie udało się wyeksportować KML: ${error.message}`, error);
     }
   }
 
   /**
-   * Pętla wyboru opcji KML - pozwala na wielokrotny wybór bez ponownego eksportu
+   * DEPRECATED - używana przez starą integrację
    */
   async showKMLOptionsLoop(geojson, name, userLocation, options = {}) {
-    const modalFn = options.showCustomModal || (typeof window !== 'undefined' && window.showCustomModal);
-    if (typeof modalFn !== 'function') {
-      console.warn('showCustomModal nie jest dostępna');
-      return;
-    }
-
-    const coords = this.extractCoordinates(geojson);
-    
-    while (true) {
-      // Pokaż komunikat wyboru
-      const addDriving = await modalFn({
-        title: 'Eksport do Google Maps',
-        message: `Co chcesz pokazać w Google Maps dla szlaku "${name}"?`,
-        confirmText: 'Dojazd samochodem',
-        cancelText: 'Tylko szlak pieszo'
-      });
-
-      // Jeśli użytkownik zamknął modal (X lub Escape), wyjdź z pętli
-      if (addDriving === null) {
-        break;
-      }
-
-      // Generuj i pobierz odpowiedni KML
-      let filename = name;
-      let kmlContent;
-      
-      if (addDriving) {
-        filename = `dojazd_do_${name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-]/g,'')}`;
-        kmlContent = userLocation ? 
-          this.generateMultiStageKMLContent(coords, name, userLocation, options) :
-          this.generateKMLContent(coords, name, null, options);
-      } else {
-        kmlContent = this.generateKMLContent(coords, name, null, options);
-      }
-      
-      // Pobierz plik
-      this.downloadFile(kmlContent, `${filename}.kml`, 'application/vnd.google-earth.kml+xml');
-      
-      // Pokaż Google Maps
-      const openInGoogleMaps = await modalFn({
-        title: 'Otworzyć w Google Maps?',
-        message: `Plik KML został pobrany. Czy chcesz również otworzyć tę trasę w Google Maps?`,
-        confirmText: 'Otwórz w Google Maps',
-        cancelText: 'Nie, dziękuję'
-      });
-      
-      // Jeśli użytkownik nie zamknął modal (X), sprawdź czy chce otworzyć Google Maps
-      if (openInGoogleMaps === true) {
-        await this.openRouteInGoogleMaps(geojson, name, userLocation, modalFn, addDriving);
-      }
-
-      // Zapytaj czy chce kontynuować
-      const continueChoosing = await modalFn({
-        title: 'Więcej opcji?',
-        message: `Czy chcesz wybrać inną opcję dla szlaku "${name}"?`,
-        confirmText: 'Tak, pokaż opcje',
-        cancelText: 'Koniec'
-      });
-      
-      // Jeśli użytkownik zamknął modal (X) lub wybrał "Koniec", wyjdź z pętli
-      if (continueChoosing === null || continueChoosing === false) {
-        break;
-      }
-    }
+    // Stara implementacja - zostaw dla kompatybilności
+    console.warn('showKMLOptionsLoop jest deprecated, użyj nowych funkcji exportDriveToStart/exportWalkTrail');
+    await this.exportToKML(geojson, name);
   }
 
   /**

@@ -7,6 +7,167 @@ if (document.readyState === 'loading') {
 
 // Funkcja getTrailImage została przeniesiona do pliku lib/trail-images.js
 
+// === FUNKCJE POMOCNICZE DO OBLICZANIA DŁUGOŚCI TRAS ===
+
+function haversineMeters(a, b){
+  const toRad = d => d * Math.PI / 180;
+  const R = 6371000; // m
+  const [lng1, lat1] = a;
+  const [lng2, lat2] = b;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const s1 = Math.sin(dLat/2), s2 = Math.sin(dLng/2);
+  const aa = s1*s1 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*s2*s2;
+  return 2 * R * Math.asin(Math.sqrt(aa));
+}
+
+function lengthOfLineStringKm(coords){
+  let m = 0;
+  for (let i=1; i<coords.length; i++){
+    m += haversineMeters(coords[i-1], coords[i]);
+  }
+  return m / 1000;
+}
+
+function lengthOfGeometryKm(geometry){
+  if (!geometry) return 0;
+  if (geometry.type === 'LineString'){
+    return lengthOfLineStringKm(geometry.coordinates);
+  }
+  if (geometry.type === 'MultiLineString'){
+    return geometry.coordinates.reduce((acc, line) => acc + lengthOfLineStringKm(line), 0);
+  }
+  return 0;
+}
+
+// === KONIEC FUNKCJI OBLICZANIA DŁUGOŚCI ===
+
+function getStartEndFromGeometry(geometry){
+  if (!geometry) return null;
+  if (geometry.type === 'LineString'){
+    const coords = geometry.coordinates;
+    return { start: coords[0], end: coords[coords.length - 1] };
+  }
+  if (geometry.type === 'MultiLineString'){
+    const lines = geometry.coordinates;
+    const first = lines[0], last = lines[lines.length - 1];
+    return { start: first[0], end: last[last.length - 1] };
+  }
+  return null;
+}
+
+const walkingCache = new Map();
+async function fetchWalkingDistanceKm(start, end){
+  if (!start || !end || !mapboxgl?.accessToken) return null;
+  const key = `${start[0]},${start[1]}|${end[0]},${end[1]}`;
+  if (walkingCache.has(key)) return walkingCache.get(key);
+  try {
+    const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=false&access_token=${mapboxgl.accessToken}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const km = (data?.routes?.[0]?.distance ?? 0) / 1000;
+    const val = isFinite(km) && km > 0 ? km : null;
+    walkingCache.set(key, val);
+    return val;
+  } catch { return null; }
+}
+
+function fmtKm(km){ return (Math.round(km * 100) / 100).toFixed(2); }
+
+// === MAP MATCHING MODULE ===
+
+function hashCoordinates(coords) {
+  return coords.map(c => `${c[0].toFixed(6)},${c[1].toFixed(6)}`).join('|');
+}
+
+function getAllCoordinates(geometry) {
+  if (!geometry) return [];
+  if (geometry.type === 'LineString') {
+    return geometry.coordinates;
+  }
+  if (geometry.type === 'MultiLineString') {
+    return geometry.coordinates.flat();
+  }
+  return [];
+}
+
+const mapMatchCache = new Map();
+
+async function mapMatchTrail(geometry) {
+  if (!geometry || !mapboxgl?.accessToken) return geometry;
+  
+  const allCoords = getAllCoordinates(geometry);
+  if (allCoords.length < 2) return geometry;
+  
+  const cacheKey = hashCoordinates(allCoords);
+  if (mapMatchCache.has(cacheKey)) {
+    return mapMatchCache.get(cacheKey);
+  }
+  
+  try {
+    let matchedCoords = [];
+    
+    // Jeśli więcej niż 100 punktów, dziel na segmenty
+    if (allCoords.length > 100) {
+      const segmentSize = 95; // Zostaw margines dla API
+      for (let i = 0; i < allCoords.length; i += segmentSize) {
+        const segment = allCoords.slice(i, Math.min(i + segmentSize, allCoords.length));
+        const segmentResult = await matchSegment(segment);
+        if (segmentResult) {
+          if (matchedCoords.length > 0) {
+            // Usuń pierwszy punkt segmentu aby uniknąć duplikacji
+            segmentResult.shift();
+          }
+          matchedCoords.push(...segmentResult);
+        } else {
+          // Fallback do oryginalnego segmentu
+          if (matchedCoords.length > 0) {
+            segment.shift();
+          }
+          matchedCoords.push(...segment);
+        }
+      }
+    } else {
+      matchedCoords = await matchSegment(allCoords) || allCoords;
+    }
+    
+    const result = {
+      type: 'LineString',
+      coordinates: matchedCoords
+    };
+    
+    mapMatchCache.set(cacheKey, result);
+    return result;
+    
+  } catch (error) {
+    console.warn('Map matching failed, using original geometry:', error);
+    mapMatchCache.set(cacheKey, geometry);
+    return geometry;
+  }
+}
+
+async function matchSegment(coords) {
+  if (!coords || coords.length < 2) return null;
+  
+  const coordsString = coords.map(c => `${c[0]},${c[1]}`).join(';');
+  const url = `https://api.mapbox.com/matching/v5/mapbox/walking/${coordsString}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.matchings && data.matchings[0] && data.matchings[0].geometry) {
+      return data.matchings[0].geometry.coordinates;
+    }
+    return null;
+  } catch (error) {
+    console.warn('Segment matching failed:', error);
+    return null;
+  }
+}
+
+// === KONIEC MAP MATCHING ===
+
 function initApp() {
   // tu przenieś dotychczasową inicjalizację (mapboxgl.accessToken, new Map, itp.)
   mapboxgl.accessToken = window.CONFIG?.MAPBOX_TOKEN || '';
@@ -52,7 +213,7 @@ function mainLineCoords(geom){
     let best=null, bestLen=0;
     for(const ls of geom.coordinates){
       if(!ls || ls.length<2) continue;
-      const len = turf.length(turf.lineString(ls));
+      const len = lengthOfLineStringKm(ls);
       if(len > bestLen){ best=ls; bestLen=len; }
     }
     return best;
@@ -213,8 +374,8 @@ async function addGeoJsonLine(map, {
     const name = featureName(f, i);
     const osmc = featureOsmc(f.properties||{});
     const coords = mainLineCoords(f.geometry);
-    const lenKm = coords ? turf.length(turf.lineString(coords)).toFixed(2) : '—';
-    return { idx:i, name, osmc, coords, lenKm, f };
+    
+    return { idx:i, name, osmc, coords, f };
   }).filter(x => Array.isArray(x.coords) && x.coords.length>1);
 
   items.sort((a,b) => a.name.localeCompare(b.name, 'pl'));
@@ -289,16 +450,38 @@ async function addGeoJsonLine(map, {
     // Użyj funkcji getTrailImage z trail-images.js do pobrania ścieżki do zdjęcia szlaku
     let trailImage = getTrailImage(item.name);
     
+    const kmTrack = lengthOfGeometryKm(item.f.geometry);
+    const se = getStartEndFromGeometry(item.f.geometry);
+    
     div.innerHTML = `
       <div class="trail-image">
         <img src="${trailImage}" onerror="console.log('Błąd ładowania obrazu:', this.src); this.onerror=null; this.src='${defaultImage}';" alt="${item.name}">
       </div>
       <div class="trail-content">
         <span class="sw" style="background:${ item.osmc==='blue' ? '#06c' : item.osmc==='green' ? '#0a0' : item.osmc==='yellow' ? '#e3b000' : '#d00' }"></span>
-        <div><div class="name">${item.name}</div><div class="sub">${item.lenKm} km</div></div>
+        <div><div class="name">${item.name}</div><div class="sub trail-distance">${fmtKm(kmTrack)} km (ślad)</div></div>
       </div>
     `;
     list.appendChild(div);
+    
+    // Asynchroniczne doładowanie dystansu z map matching
+    const distEl = div.querySelector('.trail-distance');
+
+    mapMatchTrail(item.f.geometry)
+      .then(geom => {
+        const kmMatched = lengthOfGeometryKm(geom);
+        if (isFinite(kmMatched) && Math.abs(kmMatched - kmTrack) > 0.01) {
+          distEl.textContent = `${fmtKm(kmTrack)} km (ślad) • ~${fmtKm(kmMatched)} km pieszo`;
+        }
+      })
+      .catch(() => {
+        if (!se) return;
+        fetchWalkingDistanceKm(se.start, se.end).then(kmWalk => {
+          if (kmWalk != null) {
+            distEl.textContent = `${fmtKm(kmTrack)} km (ślad) • ~${fmtKm(kmWalk)} km pieszo`;
+          }
+        });
+      });
   }
 
   
@@ -730,7 +913,7 @@ async function addGeoJsonLine(map, {
     }
   }
 
-  // Event listener dla przycisku download
+  // Event listener dla przycisku download - nowy uproszczony system
   const btnDownload = document.getElementById('btnDownload');
   if(btnDownload){
     btnDownload.addEventListener('click', async ()=>{
@@ -742,34 +925,15 @@ async function addGeoJsonLine(map, {
           // Tymczasowo ustaw currentItem aby pobranie zadziałało
           currentItem = lastItem;
           window.currentItem = lastItem;
-          
-          // Pokaż niestandardowy dialog wyboru formatu
-          const isKML = await showCustomModal({
-            title: 'Format pobierania',
-            message: 'Jak chcesz zapisać trasę szlaku?',
-            confirmText: '📱 KML dla nawigacji',
-            cancelText: '🖼️ PNG jako obraz'
-          });
-          
-          // Jeśli użytkownik zamknął modal (X), nie rób nic
-          if (isKML !== null) {
-            downloadCurrentRoute(isKML ? 'kml' : 'png');
-          }
-          return;
         }
-      } else if(currentItem) {
-        // Pokaż niestandardowy dialog wyboru formatu
-        const isKML = await showCustomModal({
-          title: 'Format pobierania',
-          message: 'Jak chcesz zapisać trasę szlaku?',
-          confirmText: '📱 KML dla nawigacji',
-          cancelText: '🖼️ PNG jako obraz'
-        });
-        
-        // Jeśli użytkownik zamknął modal (X), nie rób nic
-        if (isKML !== null) {
-          downloadCurrentRoute(isKML ? 'kml' : 'png');
-        }
+      }
+      
+      // Sprawdź czy funkcja nowego eksportu jest dostępna
+      if (typeof onClickDownload === 'function') {
+        await onClickDownload();
+      } else {
+        console.error('onClickDownload nie jest dostępna. Sprawdź czy route-export-integration.js został załadowany.');
+        alert('Błąd: moduł eksportu nie jest dostępny');
       }
     });
   }
@@ -834,11 +998,15 @@ async function addGeoJsonLine(map, {
     showTimelineUI(false);
   }
 
-  function animateItem(item){
+  async function animateItem(item){
     // Zapamiętujemy aktywny szlak dla późniejszego użycia
     currentItem = item; 
     currentCoords = item.coords; 
-    currentPath = turf.lineString(item.coords);
+    
+    // Użyj map matching dla lepszej trasy
+    const matchedGeometry = await mapMatchTrail(item.f.geometry);
+    const matchedCoords = getAllCoordinates(matchedGeometry);
+    currentPath = turf.lineString(matchedCoords.length > 1 ? matchedCoords : item.coords);
     activeIdx = item.idx; // Zapamiętaj indeks elementu
     
     // Udostępnij globalnie dla modułów

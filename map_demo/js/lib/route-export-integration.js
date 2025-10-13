@@ -33,6 +33,153 @@ function initializeRouteExporter() {
 }
 
 /**
+ * Pokazuje modal z wyborem opcji eksportu
+ */
+function showExportChoiceModal({title, subtitle, onDrive, onWalk}) {
+  return new Promise((resolve) => {
+    // Tworzenie modala
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'export-choice-modal-overlay';
+    modalContainer.innerHTML = `
+      <div class="export-choice-modal">
+        <div class="export-choice-header">
+          <h3>${title}</h3>
+          ${subtitle ? `<p class="export-choice-subtitle">${subtitle}</p>` : ''}
+          <button class="export-choice-close" aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="export-choice-buttons">
+          <button class="export-choice-btn export-choice-drive">
+            <div class="export-choice-icon">🚗</div>
+            <div class="export-choice-text">
+              <strong>Dojazd samochodem</strong>
+              <span>Do startu szlaku</span>
+            </div>
+          </button>
+          <button class="export-choice-btn export-choice-walk">
+            <div class="export-choice-icon">🚶</div>
+            <div class="export-choice-text">
+              <strong>Przejdź szlak pieszo</strong>
+              <span>Cała trasa</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modalContainer);
+    
+    // Focus management
+    const firstBtn = modalContainer.querySelector('.export-choice-drive');
+    firstBtn.focus();
+    
+    // Event handlers
+    const cleanup = () => {
+      document.body.removeChild(modalContainer);
+      resolve();
+    };
+    
+    const closeBtn = modalContainer.querySelector('.export-choice-close');
+    const driveBtn = modalContainer.querySelector('.export-choice-drive');
+    const walkBtn = modalContainer.querySelector('.export-choice-walk');
+    
+    closeBtn.addEventListener('click', cleanup);
+    modalContainer.addEventListener('click', (e) => {
+      if (e.target === modalContainer) cleanup();
+    });
+    
+    driveBtn.addEventListener('click', () => {
+      cleanup();
+      onDrive();
+    });
+    
+    walkBtn.addEventListener('click', () => {
+      cleanup();
+      onWalk();
+    });
+    
+    // Keyboard handling
+    document.addEventListener('keydown', function handleKeydown(e) {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', handleKeydown);
+        cleanup();
+      }
+      if (e.key === 'Enter') {
+        const focusedBtn = document.activeElement;
+        if (focusedBtn === driveBtn || focusedBtn === walkBtn) {
+          focusedBtn.click();
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Pobiera geolokalizację użytkownika
+ */
+function getUserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve([position.coords.longitude, position.coords.latitude]);
+      },
+      () => {
+        resolve(null);
+      },
+      { timeout: 5000, enableHighAccuracy: false }
+    );
+  });
+}
+
+/**
+ * Nowa funkcja obsługi kliknięcia przycisku pobierania
+ */
+async function onClickDownload() {
+  try {
+    // Sprawdź czy moduł jest zainicjalizowany
+    if (!routeExporter) {
+      if (!initializeRouteExporter()) {
+        throw new Error('Nie udało się zainicjalizować modułu eksportu');
+      }
+    }
+    
+    // Pobierz obecną trasę
+    const currentPath = window.currentPath;
+    const currentItem = window.currentItem;
+    
+    if (!currentPath || !currentItem) {
+      alert('Nie wybrano żadnej trasy do eksportu');
+      return;
+    }
+    
+    const name = currentItem.name || 'Trasa';
+    
+    // Pobierz geolokację
+    const userLocation = await getUserLocation();
+    
+    // Pokaż modal wyboru
+    await showExportChoiceModal({
+      title: 'Eksport do Google Maps',
+      subtitle: `Wybierz opcję dla szlaku "${name}"`,
+      onDrive: () => {
+        routeExporter.exportDriveToStart(currentPath, name, userLocation);
+      },
+      onWalk: () => {
+        routeExporter.exportWalkTrail(currentPath, name);
+      }
+    });
+    
+  } catch (error) {
+    console.error('Błąd podczas eksportu:', error);
+    alert(`Błąd eksportu: ${error.message}`);
+  }
+}
+
+/**
  * Nowa funkcja pobierania trasy - zastępuje downloadCurrentRoute
  * @param {string} format - Format eksportu ('kml', 'gpx', 'png')
  */
