@@ -31,31 +31,37 @@
 }
 
 [data-theme="dark"]{
+  /* solid/near-solid dark backgrounds */
   --bg: #0b0d12;
-  --panel: rgba(255,255,255,0.06);
-  --panel-border: rgba(255,255,255,0.10);
-  --text: #e6eef2;
-  --text-muted: #b3c0c7;
-  --chip: rgba(255,255,255,0.06);
-  --chip-border: rgba(255,255,255,0.18);
-  --chip-active: rgba(255,255,255,0.16);
-  --item-bg: rgba(255,255,255,0.08);
-  --item-border: rgba(255,255,255,0.12);
-  --highlight: rgba(145,195,255,.25);
-  --btn-bg: rgba(255,255,255,0.08);
-  --btn-border: rgba(255,255,255,0.22);
+  --panel: rgba(12,15,20,0.96);      /* było: biała przezroczystość */
+  --panel-border: rgba(255,255,255,0.08);
+
+  --chip: rgba(18,22,28,0.94);       /* chipy/toolbar */
+  --chip-border: rgba(255,255,255,0.12);
+  --chip-active: rgba(28,34,42,0.96);
+
+  --item-bg: rgba(16,20,27,0.96);    /* kafelki listy */
+  --item-border: rgba(255,255,255,0.10);
+
+  --text: #e6eef2;                   /* jasny tekst */
+  --text-muted: #b3c0c7;             /* ale czytelny */
+
+  --highlight: rgba(145,195,255,0.18);
+
+  --btn-bg: rgba(18,22,28,0.94);
+  --btn-border: rgba(255,255,255,0.14);
+
   --slider-track: rgba(255,255,255,0.22);
   --slider-track-hover: rgba(255,255,255,0.30);
   --slider-thumb: #fff;
-  --shadow: 0 0 0 2px rgba(0,0,0,0.15);
+
+  --shadow: 0 0 0 2px rgba(0,0,0,0.35);
   --focus: rgba(145,195,255,.9);
   --accent: #91c3ff;
   --ok: #80e27e;
   --danger: #ff7a7a;
-  --modal-overlay: rgba(0, 0, 0, 0.6);
-  --shadow-large: 0 10px 30px rgba(0, 0, 0, 0.3);
-  --btn-text: #000000;
 }
+
     * { box-sizing: border-box; }
     html, body { height:100%; margin:0; background: var(--bg); color: var(--text); transition: var(--transition); }
     #app { position:relative; height:100%; }
@@ -1475,3 +1481,97 @@ body { overflow-x: hidden; }
 [data-theme="dark"] html,
 [data-theme="dark"] body { background: var(--bg) !important; }
 
+/* upewnij się, że tło pod półprzezroczystymi panelami jest ciemne */
+[data-theme="dark"] html,
+[data-theme="dark"] body { background: var(--bg) !important; }
+
+/* sidebar & pasek u dołu – ciemne tło, jasny tekst */
+[data-theme="dark"] #sidebar,
+[data-theme="dark"] #sidebar .header,
+[data-theme="dark"] #sidebar .listHeader,
+[data-theme="dark"] #timelineWrap,
+[data-theme="dark"] .controlsBar {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border-color: var(--panel-border) !important;
+}
+
+/* kafelki w sidebarze – pełny kontrast */
+[data-theme="dark"] #sidebar .item{
+  background: var(--item-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--item-border) !important;
+}
+[data-theme="dark"] #sidebar .item .sub{ color: var(--text-muted) !important; }
+
+/* === DARK FIX: modal eksportu === */
+[data-theme="dark"] .export-choice-modal{
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--panel-border) !important;
+}
+[data-theme="dark"] .export-choice-btn{
+  background: var(--item-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--item-border) !important;
+}
+[data-theme="dark"] .export-choice-btn:hover{
+  background: var(--chip-active) !important;
+  border-color: var(--chip-border) !important;
+}
+[data-theme="dark"] .export-choice-text strong{ color: var(--text) !important; }
+[data-theme="dark"] .export-choice-text span{ color: var(--text-muted) !important; }
+[data-theme="dark"] .export-choice-icon{
+  background: var(--btn-bg) !important;
+}
+
+/* nagłówek modala zostawiamy gradientem z akcentów – jest OK */
+
+/* === DARK SUGGESTIA DLA <select> (menu prędkości) === */
+#speedSelect{
+  background: var(--chip);
+  color: var(--text);
+  border: 1px solid var(--chip-border);
+  /* pozwól przeglądarce dobrać właściwy wygląd menu */
+  color-scheme: light dark;
+}
+[data-theme="dark"] #speedSelect{
+  color-scheme: dark; /* w wielu przeglądarkach ściemnia natywne menu */
+}
+
+/* (opcjonalnie) ujednolić wygląd strzałki selecta */
+#speedSelect::-ms-expand{ display:none; }     /* stary Edge/IE */
+#speedSelect{ appearance: none; -webkit-appearance: none; padding-right: 24px; }
+#speedSelect{ background-image: none; }       /* mamy własną ikonę obok w chipie */
+
+/* Stały rozmiar i centrowanie przycisku zapisu (serduszko) */
+.item .saveBtn{
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  line-height: 1;         /* brak pionowego pływania glyphu */
+  font-size: 18px;        /* dla wersji znakowej ♥/♡ */
+  flex-shrink: 0;         /* nie ściskaj w wąskich układach */
+}
+
+/* Jeśli gdzieś masz SVG w środku – wymuś identyczny wymiar */
+.item .saveBtn svg{
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* (opcjonalnie) jeśli serduszko jest w <span> – ujednolić też to */
+.item .saveBtn .icon-heart{
+  font-size: 18px;
+  line-height: 1;
+  display: inline-block;
+  width: 18px;            /* stała szerokość nawet dla różnych glifów */
+  text-align: center;
+}
