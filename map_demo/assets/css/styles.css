@@ -536,15 +536,33 @@
     }
 
   
-    .actions-top{
-      position: sticky; top: 0; z-index: 3;
-      display:flex; justify-content:flex-end; gap:8px;
-      padding:8px; margin:0; background: var(--chip);
-      border-bottom: 1px solid var(--chip-border);
-      backdrop-filter: blur(6px);
-    }
+.actions-top{
+  position: sticky; top: 0; z-index: 3;
+  padding:8px; margin:0; background: var(--chip);
+  border-bottom: 1px solid var(--chip-border);
+  backdrop-filter: blur(6px);
+}
 
-    /* === Control chips === */
+/* wiersz z wyszukiwarką - flex layout */
+.search-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* sam input ma wypełniać przestrzeń */
+#searchBox{
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  position: static;
+}
+
+/* przyciski obok - nie łamią wiersza */
+#searchClear, .resetBtn, .copyLinkBtn{
+  flex: 0 0 auto;
+}    /* === Control chips === */
     .chip{
       background: var(--chip);
       border: 1px solid var(--chip-border);
@@ -1227,10 +1245,17 @@ body { overflow-x: hidden; }
 }
 #list .item.hide{ display:none !important; }
 
-.actions-top{
-  display: flex;
-  gap: 8px;
+/* Layout przycisków w kafelku */
+.item-actions{
+  display: inline-flex;
   align-items: center;
+  gap: 8px;
+}
+
+.item .saveBtn, .item .copyLinkBtn{
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  display: inline-flex; align-items:center; justify-content:center;
+  border-radius: 10px;
 }
 
 /* neutralne style kart i aktywnej karty */

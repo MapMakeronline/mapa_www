@@ -586,11 +586,20 @@ async function addGeoJsonLine(map, {
           <div class="name">${item.name}</div>
           <div class="sub trail-distance">${fmtKm(kmTrack)} km</div>
         </div>
-        <button class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
-        <button type="button" class="saveBtn copyLinkBtn" data-id="${itemId}" title="Kopiuj link do trasy">🔗</button>
+        <div class="item-actions">
+          <button type="button" class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
+          <button type="button" class="copyLinkBtn" data-id="${itemId}" title="Kopiuj link do trasy">🔗</button>
+        </div>
       </div>
     `;
     list.appendChild(div);
+    
+    // Bezpiecznik: usuń potencjalne duplikaty przycisków save
+    const actions = div.querySelector('.item-actions');
+    const hearts = actions?.querySelectorAll('.saveBtn:not(.copyLinkBtn)');
+    if (hearts && hearts.length > 1){
+      hearts.forEach((btn, i) => { if (i>0) btn.remove(); });
+    }
   }
 
   // === SAVED TRAILS INITIALIZATION ===
