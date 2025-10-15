@@ -613,6 +613,16 @@
 
   
     /* === FAB (Menu) === */
+    /* Light: ciemne kreski, żeby były widoczne na jasnym tle */
+    [data-theme="light"] #fabMenu .bar {
+      background: var(--text) !important; /* u Ciebie to #0b1220 */
+    }
+
+    /* Dark: zostawiamy białe kreski jak dotychczas (dla pewności) */
+    [data-theme="dark"] #fabMenu .bar {
+      background: #fff !important;
+    }
+
     #fabMenu{
       position: fixed;
       right: 16px;
@@ -1749,3 +1759,65 @@ body { overflow-x: hidden; }
   z-index: 9999; box-shadow: var(--shadow);
 }
 #toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+/* === COLLAPSIBLE FACET FILTERS === */
+/* Pasek wyzwalający (zwinięty stan) */
+#facetToggle {
+  display: inline-flex; 
+  align-items: center; 
+  gap: 8px;
+  background: var(--chip); 
+  border: 1px solid var(--chip-border);
+  border-radius: 999px; 
+  padding: 6px 10px; 
+  cursor: pointer; 
+  font-weight: 600;
+  color: var(--text);
+  transition: var(--transition);
+  margin-left: 0;
+}
+#facetToggle:hover {
+  background: var(--chip-active);
+}
+#facetToggle .dot { 
+  width: 8px; 
+  height: 8px; 
+  border-radius: 50%; 
+  background: var(--focus); 
+}
+
+/* Wrap + panel rozwijany */
+#facetWrap { 
+  margin: 10px 12px 0;   /* top 10, L/R 12 */ 
+}
+#facetPanel {
+  overflow: hidden; 
+  max-height: 0; 
+  opacity: 0; 
+  transform: translateY(-4px);
+  transition: max-height .25s ease, opacity .2s ease, transform .2s ease;
+  padding: 8px 0 0;      /* delikatny odstęp nad chipami */
+}
+#facetWrap.open #facetPanel {
+  max-height: 420px; /* wystarczy na 2–3 linie chipów */
+  opacity: 1; 
+  transform: translateY(0);
+}
+
+/* Kompaktowy facetBar w panelu */
+#facetPanel #facetBar .chip { 
+  padding: 4px 10px; 
+}
+#facetPanel #facetBar .group { 
+  margin: 4px 0; 
+  gap: 6px 8px; 
+}
+#facetPanel #facetBar .label { 
+  font-size: .95em; 
+  opacity: .85; 
+}
+
+/* jeżeli #facetBar bywa wstawiany bez wrappera – też zabezpieczenie */
+#facetBar {
+  padding-inline: 0;     /* trzymamy się marginesów #facetWrap */
+}

@@ -103,13 +103,43 @@ const FACET_KEY = 'mm_filter_v1';
 function getFacetState() {
   try {
     const saved = localStorage.getItem(FACET_KEY);
-    return saved ? JSON.parse(saved) : { distance: 'all', color: 'all', savedOnly: false };
-  } catch {
-    return { distance: 'all', color: 'all', savedOnly: false };
-  }
+    if (saved) {
+      const state = JSON.parse(saved);
+      // Migracja ze starego formatu (color jako string) do nowego (colors jako array)
+      if (state.color && !state.colors) {
+        state.colors = state.color === 'all' ? [] : [state.color];
+        delete state.color;
+      }
+      return { 
+        distance: state.distance || 'all', 
+        colors: state.colors || [], 
+        savedOnly: !!state.savedOnly 
+      };
+    }
+  } catch {}
+  return { distance: 'all', colors: [], savedOnly: false };
 }
 
 function saveFacetState(state) {
+  localStorage.setItem(FACET_KEY, JSON.stringify(state));
+}
+
+function saveFacetStateToLocalStorage() {
+  const bar = document.getElementById('facetBar');
+  if (!bar) return;
+  
+  // Dystans (single)
+  const distBtn = bar.querySelector('.group[data-facet="dist"] .chip.on');
+  const distance = distBtn?.dataset.km || 'all';
+  
+  // Kolor (multi) - zapisz jako tablicę
+  const colorBtns = [...bar.querySelectorAll('.group[data-facet="color"] .chip.on')];
+  const colors = colorBtns.map(b => b.dataset.color).filter(v => v && v !== 'all');
+  
+  // Zapisane
+  const savedOnly = !!bar.querySelector('.chip-toggle.on');
+  
+  const state = { distance, colors, savedOnly };
   localStorage.setItem(FACET_KEY, JSON.stringify(state));
 }
 
@@ -118,7 +148,7 @@ function mountFacetBar() {
   if (!bar) return;
 
   bar.innerHTML = `
-    <div class="group">
+    <div class="group" data-facet="dist">
       <span class="label">Dystans:</span>
       <div class="chips">
         <button class="chip" data-km="all">Wszystkie</button>
@@ -127,7 +157,7 @@ function mountFacetBar() {
         <button class="chip" data-km="8+">&gt; 8 km</button>
       </div>
     </div>
-    <div class="group">
+    <div class="group" data-facet="color" data-multi="1">
       <span class="label">Kolor:</span>
       <div class="chips">
         <button class="chip" data-color="all">Wszystkie</button>
@@ -137,7 +167,7 @@ function mountFacetBar() {
         <button class="chip" data-color="yellow"><span class="sw" style="background:#ffd600"></span> Żółty</button>
       </div>
     </div>
-    <div class="group">
+    <div class="group" data-facet="saved">
       <div class="chips">
         <button class="chip chip-toggle" data-saved="1"><span style="margin-right:4px">★</span> Tylko zapisane</button>
       </div>
@@ -152,9 +182,9 @@ function mountFacetBar() {
     btn.setAttribute('aria-selected', isOn ? 'true' : 'false');
   });
   bar.querySelectorAll('[data-color]').forEach(btn => {
-    const isOn = btn.dataset.color === state.color;
+    const isOn = state.colors.includes(btn.dataset.color) || (state.colors.length === 0 && btn.dataset.color === 'all');
     btn.classList.toggle('on', isOn);
-    btn.setAttribute('aria-selected', isOn ? 'true' : 'false');
+    btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
   });
   const savedBtn = bar.querySelector('[data-saved]');
   if (savedBtn) {
@@ -170,35 +200,33 @@ function mountFacetBar() {
     e.preventDefault();
     e.stopPropagation();
 
-    const state = getFacetState();
+    const group = btn.closest('.group');
+    const isMulti = group?.dataset.multi === '1';
 
     if (btn.classList.contains('chip-toggle')) {
       // Toggle dla "tylko zapisane"
       btn.classList.toggle('on');
-      state.savedOnly = btn.classList.contains('on');
-      btn.setAttribute('aria-pressed', state.savedOnly ? 'true' : 'false');
-    } else if (btn.dataset.km) {
-      // Single-select dla dystansu
-      const group = btn.closest('.group');
+      btn.setAttribute('aria-pressed', btn.classList.contains('on') ? 'true' : 'false');
+    } else if (isMulti) {
+      // MULTI-SELECT: przełącz tylko kliknięty
+      btn.classList.toggle('on');
+      btn.setAttribute('aria-pressed', btn.classList.contains('on') ? 'true' : 'false');
+    } else {
+      // SINGLE-SELECT: wyłącz pozostałe w grupie
       group.querySelectorAll('.chip').forEach(c => {
-        const isSelected = c === btn;
-        c.classList.toggle('on', isSelected);
-        c.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        const on = c === btn;
+        c.classList.toggle('on', on);
+        c.setAttribute('aria-pressed', on ? 'true' : 'false');
+        c.setAttribute('aria-selected', on ? 'true' : 'false');
       });
-      state.distance = btn.dataset.km;
-    } else if (btn.dataset.color) {
-      // Single-select dla koloru
-      const group = btn.closest('.group');
-      group.querySelectorAll('.chip').forEach(c => {
-        const isSelected = c === btn;
-        c.classList.toggle('on', isSelected);
-        c.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-      });
-      state.color = btn.dataset.color;
     }
 
-    saveFacetState(state);
+    // aktualizacja stanu + przefiltrowanie
+    saveFacetStateToLocalStorage();
     applyFacets();
+    if (typeof updateFacetCount === 'function') {
+      updateFacetCount();
+    }
   });
 
   // Podłącz wyszukiwarkę do filtrów
@@ -213,12 +241,23 @@ function mountFacetBar() {
 }
 
 function applyFacets() {
-  const state = getFacetState();
+  const bar = document.getElementById('facetBar');
+  if (!bar) return;
+  
   const searchInput = document.getElementById('searchInput');
   const searchPhrase = searchInput ? searchInput.value.trim().toLowerCase() : '';
   
-  // Sprawdź stan chipa "Tylko zapisane" z DOM
-  const savedMode = !!document.querySelector('#facetBar .chip-toggle.on');
+  // ----- dystans (single) -----
+  const distBtn = bar.querySelector('.group[data-facet="dist"] .chip.on');
+  const distVal = distBtn?.dataset.km || 'all';
+
+  // ----- kolor (multi) -----
+  const colorBtns = [...bar.querySelectorAll('.group[data-facet="color"] .chip.on')];
+  let colorVals = colorBtns.map(b => b.dataset.color).filter(v => v && v !== 'all');
+  const colorActive = colorVals.length > 0;
+
+  // ----- tylko zapisane -----
+  const savedMode = !!bar.querySelector('.chip-toggle.on');
   const savedSet = getSavedSet();
 
   let visibleCount = 0;
@@ -233,17 +272,17 @@ function applyFacets() {
     }
 
     // Filtr dystansu
-    if (state.distance !== 'all') {
+    if (distVal !== 'all') {
       const km = parseFloat(item.getAttribute('data-km') || '0');
-      if (state.distance === '0-3') show = show && km >= 0 && km <= 3;
-      else if (state.distance === '3-8') show = show && km > 3 && km <= 8;
-      else if (state.distance === '8+') show = show && km > 8;
+      if (distVal === '0-3') show = show && km >= 0 && km <= 3;
+      else if (distVal === '3-8') show = show && km > 3 && km <= 8;
+      else if (distVal === '8+') show = show && km > 8;
     }
 
-    // Filtr koloru
-    if (state.color !== 'all') {
+    // Filtr koloru (multi – jeśli coś wybrano, element musi należeć do wybranych)
+    if (colorActive) {
       const itemColor = item.getAttribute('data-color') || 'blue';
-      show = show && itemColor === state.color;
+      show = show && colorVals.includes(itemColor);
     }
 
     // Filtr zapisanych - używamy stanu z DOM
@@ -261,6 +300,72 @@ function applyFacets() {
   if (counter) counter.textContent = visibleCount;
 }
 // === KONIEC FACET FILTERS ===
+
+// === COLLAPSIBLE FACET UI ===
+function mountFacetUI(){
+  // 1) Znajdź miejsce pod search row; jeśli nie ma, wstaw po .actions-top
+  let host = document.getElementById('facetHost');
+  if (!host){
+    const after = document.querySelector('#sidebar .actions-top') || document.getElementById('searchRow') || document.getElementById('searchBox')?.parentElement;
+    if (after){
+      host = document.createElement('div');
+      host.id = 'facetHost';
+      after.insertAdjacentElement('afterend', host);
+    }
+  }
+  if (!host) return;
+
+  // 2) Zapisany stan rozwinięcia
+  const savedOpen = localStorage.getItem('mm_facet_open') === '1';
+
+  // 3) Szkielet UI
+  host.innerHTML = `
+    <div id="facetWrap" class="${savedOpen ? 'open' : ''}">
+      <button id="facetToggle" type="button" aria-expanded="${savedOpen}">
+        <span>Filtry</span>
+        <span id="facetCount" aria-hidden="true"></span>
+        <span class="dot" aria-hidden="true"></span>
+      </button>
+      <div id="facetPanel">
+        <div id="facetBar"></div>
+      </div>
+    </div>
+  `;
+
+  // 4) Wstaw istniejące chipy do #facetBar
+  mountFacetBar();      // ← Twoja obecna funkcja generująca chipy
+  updateFacetCount();   // ← nowa funkcja poniżej
+
+  // 5) Toggle open/close
+  const wrap   = document.getElementById('facetWrap');
+  const toggle = document.getElementById('facetToggle');
+  toggle.addEventListener('click', (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    wrap.classList.toggle('open');
+    const open = wrap.classList.contains('open');
+    toggle.setAttribute('aria-expanded', open);
+    localStorage.setItem('mm_facet_open', open ? '1' : '0');
+  });
+
+  // 6) Aktualizuj licznik po każdej zmianie filtra
+  document.getElementById('facetBar')?.addEventListener('click', (e)=>{
+    if (!e.target.closest('.chip')) return;
+    setTimeout(updateFacetCount, 0);
+  });
+}
+
+// Liczba aktywnych filtrów: dystans≠Wszystkie + kolor≠Wszystkie + „tylko zapisane"
+function updateFacetCount(){
+  const bar = document.getElementById('facetBar');
+  const out = document.getElementById('facetCount');
+  if (!bar || !out) return;
+  const distOn  = !!bar.querySelector('.group[data-facet="dist"]  .chip.on:not([data-km="all"])');
+  const colorOn = bar.querySelectorAll('.group[data-facet="color"] .chip.on:not([data-color="all"])').length > 0;
+  const savedOn = !!bar.querySelector('.chip-toggle.on');
+  const n = [distOn, colorOn, savedOn].filter(Boolean).length;
+  out.textContent = n ? `(${n})` : '';
+}
+// === KONIEC COLLAPSIBLE FACET UI ===
 
 // === THEME SYSTEM ===
 const THEME_KEY = 'mm_theme_v1'; // 'light' | 'dark' | null (system)
@@ -777,7 +882,7 @@ async function addGeoJsonLine(map, {
   // ensureListHeader(); // WYŁĄCZONE - używamy tylko filtrów
   
   // === FACET FILTERS INITIALIZATION ===
-  mountFacetBar();
+  mountFacetUI();
   
   // === THEME TOGGLE INITIALIZATION ===
   ensureThemeToggle();
@@ -811,6 +916,10 @@ async function addGeoJsonLine(map, {
       // Zastosuj filtry ponownie
       if (typeof applyFacets === 'function') {
         applyFacets();
+      }
+      // Aktualizuj licznik filtrów
+      if (typeof updateFacetCount === 'function') {
+        updateFacetCount();
       }
     }
   });
