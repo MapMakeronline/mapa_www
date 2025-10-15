@@ -587,7 +587,7 @@ async function addGeoJsonLine(map, {
           <div class="sub trail-distance">${fmtKm(kmTrack)} km</div>
         </div>
         <button class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
-        <button class="saveBtn copyLinkBtn" data-id="${itemId}" title="Kopiuj link do trasy">🔗</button>
+        <button type="button" class="saveBtn copyLinkBtn" data-id="${itemId}" title="Kopiuj link do trasy">🔗</button>
       </div>
     `;
     list.appendChild(div);
@@ -1577,39 +1577,45 @@ searchClearBtn?.addEventListener('click', ()=>{
 // === COPY LINK FUNCTIONALITY ===
 
 function buildShareUrl(opts={}){
-  // wymagane
-  const id   = String(opts.id || opts.featureId || appState?.activeId || '');
-  // stan mapy
-  const c    = map.getCenter();
-  const z    = map.getZoom();
-  const br   = map.getBearing();
-  const pi   = map.getPitch();
-  // UI
-  const th   = document.documentElement.getAttribute('data-theme') || '';
-  const q = new URLSearchParams();
-  if (id) q.set('id', id);
-  if (c)  { q.set('lat', c.lat.toFixed(6)); q.set('lng', c.lng.toFixed(6)); }
-  if (z!=null)  q.set('z',  String(+z.toFixed(2)));
-  if (br!=null) q.set('br', String(+br.toFixed(1)));
-  if (pi!=null) q.set('pi', String(+pi.toFixed(0)));
-  if (th) q.set('theme', th);
-  // opcjonalnie czas animacji jeśli masz
-  if (typeof appState?.timeSec === 'number') q.set('t', String(Math.max(0, Math.round(appState.timeSec))));
-  const base = location.origin + location.pathname;
-  return `${base}?${q.toString()}`;
+  try{
+    const id = String(opts.id || opts.featureId || window.appState?.activeId || '');
+    const c  = window.map?.getCenter?.(); const z = window.map?.getZoom?.();
+    const br = window.map?.getBearing?.(); const pi = window.map?.getPitch?.();
+    const th = document.documentElement.getAttribute('data-theme') || '';
+    const q = new URLSearchParams();
+    if (id) q.set('id', id);
+    if (c && isFinite(c.lat) && isFinite(c.lng)){ q.set('lat', c.lat.toFixed(6)); q.set('lng', c.lng.toFixed(6)); }
+    if (isFinite(z))  q.set('z',  (+z).toFixed(2));
+    if (isFinite(br)) q.set('br', (+br).toFixed(1));
+    if (isFinite(pi)) q.set('pi', Math.round(+pi));
+    if (th) q.set('theme', th);
+    if (typeof window.appState?.timeSec === 'number') q.set('t', String(Math.max(0, Math.round(window.appState.timeSec))));
+    const base = location.origin + location.pathname;
+    return `${base}?${q.toString()}`;
+  }catch(e){ console.error('[copy] buildShareUrl error:', e); return location.href; }
 }
 
 async function copyTextToClipboard(text){
+  console.log('[copy] trying to copy:', text);
   try{
-    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
-  }catch(e){}
-  // fallback
-  const ta = document.createElement('textarea');
-  ta.value = text; ta.setAttribute('readonly','');
-  ta.style.position='fixed'; ta.style.top='-9999px';
-  document.body.appendChild(ta); ta.select();
-  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
-  document.body.removeChild(ta); return ok;
+    if (navigator.clipboard?.writeText){
+      if (document.hasFocus?.() === false) window.focus();
+      await navigator.clipboard.writeText(text);
+      console.log('[copy] ✓ Clipboard API');
+      return true;
+    }
+  }catch(e){ console.warn('[copy] Clipboard API failed:', e); }
+  try{
+    console.log('[copy] trying execCommand fallback…');
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly','');
+    ta.style.position='fixed'; ta.style.top='-9999px'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, ta.value.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok){ console.log('[copy] ✓ execCommand'); return true; }
+    console.error('[copy] ✗ execCommand returned false'); return false;
+  }catch(e){ console.error('[copy] ✗ fallback failed:', e); return false; }
 }
 
 function showToast(msg){
@@ -1621,28 +1627,27 @@ function showToast(msg){
 
 function showInlineTip(btn, msg){
   let tip = btn.querySelector('.tip');
-  if (!tip){ tip = document.createElement('span'); tip.className = 'tip'; btn.appendChild(tip); }
-  tip.textContent = msg;
-  tip.classList.add('show');
-  setTimeout(()=> tip.classList.remove('show'), 1500);
+  if (!tip){ tip = document.createElement('span'); tip.className='tip'; btn.appendChild(tip); }
+  tip.textContent = msg; tip.classList.add('show');
+  clearTimeout(btn.__tipTimer); btn.__tipTimer = setTimeout(()=> tip.classList.remove('show'), 1500);
 }
 
 // Event listeners for copy link buttons
 document.getElementById('list')?.addEventListener('click', async (e)=>{
   const btn = e.target.closest('.copyLinkBtn'); if (!btn) return;
   e.preventDefault(); e.stopPropagation();
-  
-  const id = btn.dataset.id || appState?.activeId || '';
+  const id  = btn.dataset.id || window.appState?.activeId || '';
   const url = buildShareUrl({ id });
-  const ok = await copyTextToClipboard(url);
-  
+  console.debug('[copy] from list, id:', id, 'url:', url);
+  const ok  = await copyTextToClipboard(url);
   showInlineTip(btn, ok ? 'Skopiowano' : 'Błąd');
 });
 
 document.getElementById('copyShare')?.addEventListener('click', async (e)=>{
-  const btn = e.target;
-  const url = buildShareUrl({ id: appState?.activeId || '' });
-  const ok = await copyTextToClipboard(url);
+  const btn = e.currentTarget; e.preventDefault();
+  const url = buildShareUrl({ id: window.appState?.activeId || '' });
+  console.debug('[copy] from header, url:', url);
+  const ok  = await copyTextToClipboard(url);
   showInlineTip(btn, ok ? 'Skopiowano' : 'Błąd');
 });
 

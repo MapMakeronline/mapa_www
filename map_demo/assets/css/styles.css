@@ -1576,30 +1576,23 @@ body { overflow-x: hidden; }
   text-align: center;
 }
 
+.copyLinkBtn{ position:relative; cursor:pointer; }
 .copyLinkBtn{ 
-  position: relative; cursor: pointer;
   width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px; border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--text); 
 }
 .copyLinkBtn:focus{ outline:2px solid var(--focus); outline-offset:2px; }
 
 .copyLinkBtn .tip{
-  position: absolute;
-  bottom: 110%;
-  left: 50%;
-  transform: translateX(-50%) scale(.95);
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--panel-border);
-  padding: 6px 8px;
-  border-radius: 8px;
-  white-space: nowrap;
-  box-shadow: var(--shadow);
-  opacity: 0;
-  pointer-events: none;
-  transition: .15s ease;
+  position:absolute; bottom:110%; left:50%;
+  transform:translateX(-50%) scale(.95);
+  background:var(--panel); color:var(--text);
+  border:1px solid var(--panel-border);
+  padding:6px 8px; border-radius:8px; white-space:nowrap;
+  box-shadow:var(--shadow); opacity:0; pointer-events:none;
+  transition:.15s ease; z-index:9999;
 }
-.copyLinkBtn .tip.show{ opacity:1; transform: translateX(-50%) scale(1); }
+.copyLinkBtn .tip.show{ opacity:1; transform:translateX(-50%) scale(1); }
 
 #toast{
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
