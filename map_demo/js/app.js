@@ -1155,7 +1155,7 @@ async function addGeoJsonLine(map, {
     setPauseUI(); // Aktualizacja przycisku pauzy
     
     // Ustaw przyciski w odpowiedni stan
-    btnStop.disabled = true;
+    if(btnStop) btnStop.disabled = true;
     if(btnPause) btnPause.disabled = true;
     if(btnReplay) btnReplay.disabled = true;
     if(btnDownload) btnDownload.disabled = true;
@@ -1261,7 +1261,7 @@ async function addGeoJsonLine(map, {
         animId = requestAnimationFrame(frame);
       } else {
         // Aktualizacja UI po zakończeniu animacji
-        btnStop.disabled = false;  // Umożliwiamy zatrzymanie nawet po zakończeniu
+        if(btnStop) btnStop.disabled = false;  // Umożliwiamy zatrzymanie nawet po zakończeniu
         updateTimeUI(1);
         timeline.value = 1000;  // Upewnijmy się, że suwak jest na końcu
         paintSlider(1);
@@ -1281,7 +1281,7 @@ async function addGeoJsonLine(map, {
     }
 
     window._rafFrame = frame;
-    btnStop.disabled = false;
+    if(btnStop) btnStop.disabled = false;
     animId = requestAnimationFrame(frame);
   }
 
@@ -1294,43 +1294,6 @@ async function addGeoJsonLine(map, {
     if(item){ setActive(item.idx); animateItem(item); }
   });
 
-  btnStop.addEventListener('click', ()=>{
-    // Zatrzymaj i zresetuj animację
-    if(animId) {
-      cancelAnimationFrame(animId);
-      animId = null;
-    }
-    
-    // Ukryj elementy UI animacji
-    setActive(-1);
-    clearActive();
-    
-    // Usuń markery i popup
-    if(marker){ marker.remove(); marker = null; }
-    if(popup){ popup.remove(); popup = null; }
-    
-    // Wyczyść linię animacji
-    map.setPaintProperty('anim-line', 'line-gradient', ['step',['line-progress'],'rgba(255,0,0,0)', 0, 'rgba(255,0,0,0)']);
-    
-    // Resetuj wszystkie zmienne animacji
-    currentItem = null;
-    currentPath = null;
-    currentCoords = null;
-    
-    // Resetuj zmienne globalne
-    window.currentItem = null;
-    window.currentPath = null;
-    paused = true;
-    
-    // Ukryj pasek czasu
-    showTimelineUI(false);
-    
-    // Aktualizuj stan przycisków
-    btnStop.disabled = true;
-    if(btnPause) btnPause.disabled = true;
-    if(btnReplay) btnReplay.disabled = true;
-  });
-  
   // Obsługa przycisku Replay
   const btnReplay = document.getElementById('btnReplay');
   if(btnReplay) {

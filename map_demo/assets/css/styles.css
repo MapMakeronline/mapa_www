@@ -560,7 +560,7 @@
 }
 
 /* przyciski obok - nie łamią wiersza */
-#searchClear, .resetBtn, .copyLinkBtn{
+#searchClear, .copyLinkBtn{
   flex: 0 0 auto;
 }    /* === Control chips === */
     .chip{
