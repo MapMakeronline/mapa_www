@@ -327,6 +327,136 @@
   display: none !important;
 }
 
+/* Wyraźny stan aktywny filtra */
+#facetBar .chip.on{
+  background: var(--chip-active);
+  border-color: var(--focus);
+  color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 30%, transparent);
+  font-weight: 600;
+}
+
+/* Ikona w środku chipów (np. kropka/kółko) też jaśniejsza w on */
+#facetBar .chip.on .sw{
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+/* chip „Tylko zapisane" — podbijamy label gdy on */
+#facetBar .chip-toggle.on{
+  background: var(--chip-active);
+  border-color: var(--focus);
+  color: var(--text);
+}
+
+/* chowamy stare zakładki, jeśli jeszcze w DOM */
+#tabs, .tabs, .listHeader, .chip-switch { 
+  display: none !important; 
+}
+
+/* opcjonalny ptaszek na aktywnym chipie */
+#facetBar .chip.on::after{
+  content: "✓";
+  margin-left: .4rem;
+  opacity: .9;
+}
+
+/* Facet bar – nigdy nie przycinaj, pozwól zawijać */
+#facetBar{
+  display: block;            /* prosty blok, a grupy same się układają */
+  overflow: visible;         /* na wszelki wypadek */
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel);
+}
+
+/* Każda grupa: label + chipy, chipy mogą zawijać */
+#facetBar .group{
+  display: flex;
+  flex-wrap: wrap;           /* <<< KLUCZ: zawijanie chipów */
+  align-items: center;
+  gap: 8px 10px;             /* pion/poziom */
+  width: 100%;
+  margin: 6px 0;
+}
+
+/* Label nie zawija chipów – trzyma się lewej krawędzi */
+#facetBar .group .label{
+  flex: 0 0 auto;            /* stała szerokość labela */
+  min-width: max-content;    /* „Dystans:", „Kolor:" nie łamie się */
+  margin-right: 6px;
+  opacity: .9;
+  font-weight: 600;
+}
+
+/* Kontener na chipy – pozwala zawijać bez ściskania */
+#facetBar .group .chips{
+  flex: 1 1 auto;            /* reszta szerokości */
+  display: flex;
+  flex-wrap: wrap;           /* <<< zawijanie w obrębie grupy */
+  gap: 8px 10px;
+  min-width: 0;              /* pozwól się kurczyć */
+}
+
+/* Sam chip – nie rozpycha się, nie łamie w pion */
+#facetBar .chip{
+  flex: 0 0 auto;            /* naturalna szerokość, brak rozciągania */
+  white-space: nowrap;       /* „3–8 km" w jednym wierszu */
+  background: var(--chip);
+  border: 1px solid var(--chip-border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--transition);
+  outline: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Aktywne chipy */
+#facetBar .chip.on {
+  background: var(--chip-active);
+  border-color: var(--focus);
+}
+
+/* Toggle chipy */
+#facetBar .chip-toggle {
+  font-weight: 600;
+}
+
+/* Ikony kolorów w chipach */
+#facetBar .sw {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 2px;
+}
+
+/* Jeżeli któryś rodzic je przycinał, odblokuj */
+#sidebar, #sidebar .content, #sidebar .header, .actions-top{
+  overflow: visible;
+}
+
+/* (opcjonalnie) na bardzo wąskich – label nad chipami */
+@media (max-width: 520px){
+  #facetBar .group{
+    align-items: flex-start;
+  }
+  #facetBar .group .label{
+    flex-basis: 100%;        /* label w osobnym wierszu */
+    margin-bottom: 2px;
+  }
+  #facetBar .chip {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+}
+
     /* Pozycjonowanie na desktopie */
     @media screen and (min-width: 1025px) {
       #timelineWrap {

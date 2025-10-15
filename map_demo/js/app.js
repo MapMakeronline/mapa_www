@@ -97,6 +97,171 @@ function updateSavedCount(){
 }
 // === KONIEC SAVED TRAILS ===
 
+// === FACET FILTERS ===
+const FACET_KEY = 'mm_filter_v1';
+
+function getFacetState() {
+  try {
+    const saved = localStorage.getItem(FACET_KEY);
+    return saved ? JSON.parse(saved) : { distance: 'all', color: 'all', savedOnly: false };
+  } catch {
+    return { distance: 'all', color: 'all', savedOnly: false };
+  }
+}
+
+function saveFacetState(state) {
+  localStorage.setItem(FACET_KEY, JSON.stringify(state));
+}
+
+function mountFacetBar() {
+  const bar = document.getElementById('facetBar');
+  if (!bar) return;
+
+  bar.innerHTML = `
+    <div class="group">
+      <span class="label">Dystans:</span>
+      <div class="chips">
+        <button class="chip" data-km="all">Wszystkie</button>
+        <button class="chip" data-km="0-3">0–3 km</button>
+        <button class="chip" data-km="3-8">3–8 km</button>
+        <button class="chip" data-km="8+">&gt; 8 km</button>
+      </div>
+    </div>
+    <div class="group">
+      <span class="label">Kolor:</span>
+      <div class="chips">
+        <button class="chip" data-color="all">Wszystkie</button>
+        <button class="chip" data-color="blue"><span class="sw" style="background:#2196f3"></span> Niebieski</button>
+        <button class="chip" data-color="red"><span class="sw" style="background:#dc2626"></span> Czerwony</button>
+        <button class="chip" data-color="green"><span class="sw" style="background:#16a34a"></span> Zielony</button>
+        <button class="chip" data-color="yellow"><span class="sw" style="background:#ffd600"></span> Żółty</button>
+      </div>
+    </div>
+    <div class="group">
+      <div class="chips">
+        <button class="chip chip-toggle" data-saved="1"><span style="margin-right:4px">★</span> Tylko zapisane</button>
+      </div>
+    </div>
+  `;
+
+  // Odtwórz stan z localStorage
+  const state = getFacetState();
+  bar.querySelectorAll('[data-km]').forEach(btn => {
+    const isOn = btn.dataset.km === state.distance;
+    btn.classList.toggle('on', isOn);
+    btn.setAttribute('aria-selected', isOn ? 'true' : 'false');
+  });
+  bar.querySelectorAll('[data-color]').forEach(btn => {
+    const isOn = btn.dataset.color === state.color;
+    btn.classList.toggle('on', isOn);
+    btn.setAttribute('aria-selected', isOn ? 'true' : 'false');
+  });
+  const savedBtn = bar.querySelector('[data-saved]');
+  if (savedBtn) {
+    savedBtn.classList.toggle('on', !!state.savedOnly);
+    savedBtn.setAttribute('aria-pressed', !!state.savedOnly ? 'true' : 'false');
+  }
+
+  // Event listener z delegacją
+  bar.addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip');
+    if (!btn) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+
+    const state = getFacetState();
+
+    if (btn.classList.contains('chip-toggle')) {
+      // Toggle dla "tylko zapisane"
+      btn.classList.toggle('on');
+      state.savedOnly = btn.classList.contains('on');
+      btn.setAttribute('aria-pressed', state.savedOnly ? 'true' : 'false');
+    } else if (btn.dataset.km) {
+      // Single-select dla dystansu
+      const group = btn.closest('.group');
+      group.querySelectorAll('.chip').forEach(c => {
+        const isSelected = c === btn;
+        c.classList.toggle('on', isSelected);
+        c.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      });
+      state.distance = btn.dataset.km;
+    } else if (btn.dataset.color) {
+      // Single-select dla koloru
+      const group = btn.closest('.group');
+      group.querySelectorAll('.chip').forEach(c => {
+        const isSelected = c === btn;
+        c.classList.toggle('on', isSelected);
+        c.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      });
+      state.color = btn.dataset.color;
+    }
+
+    saveFacetState(state);
+    applyFacets();
+  });
+
+  // Podłącz wyszukiwarkę do filtrów
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    let debounceTimer = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(applyFacets, 120);
+    });
+  }
+}
+
+function applyFacets() {
+  const state = getFacetState();
+  const searchInput = document.getElementById('searchInput');
+  const searchPhrase = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  
+  // Sprawdź stan chipa "Tylko zapisane" z DOM
+  const savedMode = !!document.querySelector('#facetBar .chip-toggle.on');
+  const savedSet = getSavedSet();
+
+  let visibleCount = 0;
+
+  document.querySelectorAll('#list .item').forEach(item => {
+    let show = true;
+
+    // Filtr frazy
+    if (searchPhrase) {
+      const name = (item.querySelector('.name')?.textContent || '').toLowerCase();
+      show = show && name.includes(searchPhrase);
+    }
+
+    // Filtr dystansu
+    if (state.distance !== 'all') {
+      const km = parseFloat(item.getAttribute('data-km') || '0');
+      if (state.distance === '0-3') show = show && km >= 0 && km <= 3;
+      else if (state.distance === '3-8') show = show && km > 3 && km <= 8;
+      else if (state.distance === '8+') show = show && km > 8;
+    }
+
+    // Filtr koloru
+    if (state.color !== 'all') {
+      const itemColor = item.getAttribute('data-color') || 'blue';
+      show = show && itemColor === state.color;
+    }
+
+    // Filtr zapisanych - używamy stanu z DOM
+    if (savedMode) {
+      const itemId = item.getAttribute('data-id');
+      show = show && savedSet.has(String(itemId));
+    }
+
+    item.classList.toggle('hide', !show);
+    if (show) visibleCount++;
+  });
+
+  // Opcjonalnie: aktualizuj licznik wyników
+  const counter = document.getElementById('facetCount');
+  if (counter) counter.textContent = visibleCount;
+}
+// === KONIEC FACET FILTERS ===
+
 // === THEME SYSTEM ===
 const THEME_KEY = 'mm_theme_v1'; // 'light' | 'dark' | null (system)
 function getSystemTheme(){ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
@@ -575,7 +740,18 @@ async function addGeoJsonLine(map, {
     const itemId = item.f.id || item.idx;
     const savedNow = isSaved(itemId);
     
+    // Określ kolor szlaku
+    let trailColor = 'blue';
+    if (item.osmc === 'blue') trailColor = 'blue';
+    else if (item.osmc === 'green') trailColor = 'green';
+    else if (item.osmc === 'yellow') trailColor = 'yellow';
+    else if (item.osmc === 'red') trailColor = 'red';
+    else trailColor = 'blue'; // domyślny
+    
     div.setAttribute('data-id', itemId);
+    div.setAttribute('data-km', kmTrack.toFixed(2));
+    div.setAttribute('data-color', trailColor);
+    div.setAttribute('data-saved', savedNow ? '1' : '0');
     div.innerHTML = `
       <div class="trail-image">
         <img src="${trailImage}" onerror="console.log('Błąd ładowania obrazu:', this.src); this.onerror=null; this.src='${defaultImage}';" alt="${item.name}">
@@ -592,8 +768,16 @@ async function addGeoJsonLine(map, {
     list.appendChild(div);
   }
 
+  // Zastosuj filtry po renderowaniu listy
+  if (typeof applyFacets === 'function') {
+    applyFacets();
+  }
+
   // === SAVED TRAILS INITIALIZATION ===
-  ensureListHeader();
+  // ensureListHeader(); // WYŁĄCZONE - używamy tylko filtrów
+  
+  // === FACET FILTERS INITIALIZATION ===
+  mountFacetBar();
   
   // === THEME TOGGLE INITIALIZATION ===
   ensureThemeToggle();
@@ -614,12 +798,25 @@ async function addGeoJsonLine(map, {
     btn.title = on ? 'Usuń z zapisanych' : 'Zapisz trasę';
     updateSavedCount();
     // gdy filtr "Zapisane" aktywny – odśwież widok, by ukryć/odsłonić element
-    if (getFilter()==='saved'){
-      const show = on;
-      btn.closest('.item').style.display = show ? '' : 'none';
+    // STARE - używamy teraz applyFacets()
+    // if (getFilter()==='saved'){
+    //   const show = on;
+    //   btn.closest('.item').style.display = show ? '' : 'none';
+    // }
+    
+    // Aktualizuj atrybut data-saved na kafelku
+    const item = btn.closest('.item');
+    if (item) {
+      item.setAttribute('data-saved', on ? '1' : '0');
+      // Zastosuj filtry ponownie
+      if (typeof applyFacets === 'function') {
+        applyFacets();
+      }
     }
   });
   
+  // STARA LOGIKA ZAKŁADEK WYŁĄCZONA - używamy tylko filtrów
+  /*
   // Filtr „Wszystkie/Zapisane" – nasłuch
   document.addEventListener('click', (e)=>{
     const b = e.target.closest('#savedFilter button[data-mode]');
@@ -643,6 +840,8 @@ async function addGeoJsonLine(map, {
     const show = (startMode==='all') || (saved.has(String(id)));
     el.style.display = show ? '' : 'none';
   });
+  */
+  
   // podbij liczniki/serduszka zgodnie ze stanem
   document.querySelectorAll('#list .saveBtn').forEach(btn=>{
     const on = isSaved(btn.getAttribute('data-id'));
