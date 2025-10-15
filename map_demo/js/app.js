@@ -1619,19 +1619,30 @@ function showToast(msg){
   setTimeout(()=>{ n.classList.remove('show'); }, 1600);
 }
 
+function showInlineTip(btn, msg){
+  let tip = btn.querySelector('.tip');
+  if (!tip){ tip = document.createElement('span'); tip.className = 'tip'; btn.appendChild(tip); }
+  tip.textContent = msg;
+  tip.classList.add('show');
+  setTimeout(()=> tip.classList.remove('show'), 1500);
+}
+
 // Event listeners for copy link buttons
 document.getElementById('list')?.addEventListener('click', async (e)=>{
   const btn = e.target.closest('.copyLinkBtn'); if (!btn) return;
-  e.stopPropagation(); e.preventDefault();
+  e.preventDefault(); e.stopPropagation();
+  
   const id = btn.dataset.id || appState?.activeId || '';
   const url = buildShareUrl({ id });
   const ok = await copyTextToClipboard(url);
-  showToast(ok ? 'Skopiowano link' : 'Nie udało się skopiować');
+  
+  showInlineTip(btn, ok ? 'Skopiowano' : 'Błąd');
 });
 
-document.getElementById('copyShare')?.addEventListener('click', async ()=>{
+document.getElementById('copyShare')?.addEventListener('click', async (e)=>{
+  const btn = e.target;
   const url = buildShareUrl({ id: appState?.activeId || '' });
   const ok = await copyTextToClipboard(url);
-  showToast(ok ? 'Skopiowano link' : 'Nie udało się skopiować');
+  showInlineTip(btn, ok ? 'Skopiowano' : 'Błąd');
 });
 
