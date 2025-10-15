@@ -1245,14 +1245,7 @@ body { overflow-x: hidden; }
 }
 #list .item.hide{ display:none !important; }
 
-/* Layout przycisków w kafelku */
-.item-actions{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.item .saveBtn, .item .copyLinkBtn{
+.item .saveBtn{
   width: 36px; height: 36px; min-width: 36px; min-height: 36px;
   display: inline-flex; align-items:center; justify-content:center;
   border-radius: 10px;
@@ -1601,8 +1594,8 @@ body { overflow-x: hidden; }
   text-align: center;
 }
 
-.copyLinkBtn{ position:relative; cursor:pointer; }
 .copyLinkBtn{ 
+  position:relative; cursor:pointer;
   width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px; border:1px solid var(--btn-border); background: var(--btn-bg); color: var(--text); 
 }

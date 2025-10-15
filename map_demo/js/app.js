@@ -586,20 +586,10 @@ async function addGeoJsonLine(map, {
           <div class="name">${item.name}</div>
           <div class="sub trail-distance">${fmtKm(kmTrack)} km</div>
         </div>
-        <div class="item-actions">
-          <button type="button" class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
-          <button type="button" class="copyLinkBtn" data-id="${itemId}" title="Kopiuj link do trasy">🔗</button>
-        </div>
+        <button type="button" class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
       </div>
     `;
     list.appendChild(div);
-    
-    // Bezpiecznik: usuń potencjalne duplikaty przycisków save
-    const actions = div.querySelector('.item-actions');
-    const hearts = actions?.querySelectorAll('.saveBtn:not(.copyLinkBtn)');
-    if (hearts && hearts.length > 1){
-      hearts.forEach((btn, i) => { if (i>0) btn.remove(); });
-    }
   }
 
   // === SAVED TRAILS INITIALIZATION ===
@@ -1641,17 +1631,7 @@ function showInlineTip(btn, msg){
   clearTimeout(btn.__tipTimer); btn.__tipTimer = setTimeout(()=> tip.classList.remove('show'), 1500);
 }
 
-// Event listeners for copy link buttons
-document.getElementById('list')?.addEventListener('click', async (e)=>{
-  const btn = e.target.closest('.copyLinkBtn'); if (!btn) return;
-  e.preventDefault(); e.stopPropagation();
-  const id  = btn.dataset.id || window.appState?.activeId || '';
-  const url = buildShareUrl({ id });
-  console.debug('[copy] from list, id:', id, 'url:', url);
-  const ok  = await copyTextToClipboard(url);
-  showInlineTip(btn, ok ? 'Skopiowano' : 'Błąd');
-});
-
+// Event listener for global copy link button
 document.getElementById('copyShare')?.addEventListener('click', async (e)=>{
   const btn = e.currentTarget; e.preventDefault();
   const url = buildShareUrl({ id: window.appState?.activeId || '' });
