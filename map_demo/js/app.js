@@ -587,6 +587,7 @@ async function addGeoJsonLine(map, {
           <div class="sub trail-distance">${fmtKm(kmTrack)} km</div>
         </div>
         <button class="saveBtn" data-id="${itemId}" data-name="${item.name}" aria-pressed="${savedNow}" title="${savedNow?'Usuń z zapisanych':'Zapisz trasę'}">${savedNow?'♥':'♡'}</button>
+        <button class="saveBtn copyLinkBtn" data-id="${itemId}" title="Kopiuj link do trasy">🔗</button>
       </div>
     `;
     list.appendChild(div);
@@ -1357,6 +1358,31 @@ async function addGeoJsonLine(map, {
     map.fitBounds(bbox, { padding: 80, duration: 0 });
   } catch(e){}
 
+  // Apply deep-link state after everything is initialized
+  setTimeout(() => {
+    const p = new URLSearchParams(location.search);
+    const lat = parseFloat(p.get('lat')), lng = parseFloat(p.get('lng')), z = parseFloat(p.get('z'));
+    const br = parseFloat(p.get('br')), pi = parseFloat(p.get('pi'));
+    const th = p.get('theme'); if (th) document.documentElement.setAttribute('data-theme', th);
+    if (isFinite(lat) && isFinite(lng) && isFinite(z)) map.jumpTo({ center:[lng,lat], zoom:z });
+    if (isFinite(br)) map.setBearing(br);
+    if (isFinite(pi)) map.setPitch(pi);
+    const id = p.get('id');
+    if (id) {
+      // znajdź i aktywuj trasę
+      const items = document.querySelectorAll('#list .item');
+      for (const item of items) {
+        if (item.dataset.id === id) {
+          item.click();
+          item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        }
+      }
+      if (appState) appState.activeId = id;
+    }
+    const t = parseFloat(p.get('t')); if (isFinite(t) && typeof seekToSeconds==='function') seekToSeconds(t);
+  }, 100);
+
 })(); 
 }
 
@@ -1546,5 +1572,66 @@ searchClearBtn?.addEventListener('click', ()=>{
   searchInputEl.value = '';
   filterList('');
   searchInputEl.focus();
+});
+
+// === COPY LINK FUNCTIONALITY ===
+
+function buildShareUrl(opts={}){
+  // wymagane
+  const id   = String(opts.id || opts.featureId || appState?.activeId || '');
+  // stan mapy
+  const c    = map.getCenter();
+  const z    = map.getZoom();
+  const br   = map.getBearing();
+  const pi   = map.getPitch();
+  // UI
+  const th   = document.documentElement.getAttribute('data-theme') || '';
+  const q = new URLSearchParams();
+  if (id) q.set('id', id);
+  if (c)  { q.set('lat', c.lat.toFixed(6)); q.set('lng', c.lng.toFixed(6)); }
+  if (z!=null)  q.set('z',  String(+z.toFixed(2)));
+  if (br!=null) q.set('br', String(+br.toFixed(1)));
+  if (pi!=null) q.set('pi', String(+pi.toFixed(0)));
+  if (th) q.set('theme', th);
+  // opcjonalnie czas animacji jeśli masz
+  if (typeof appState?.timeSec === 'number') q.set('t', String(Math.max(0, Math.round(appState.timeSec))));
+  const base = location.origin + location.pathname;
+  return `${base}?${q.toString()}`;
+}
+
+async function copyTextToClipboard(text){
+  try{
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
+  }catch(e){}
+  // fallback
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly','');
+  ta.style.position='fixed'; ta.style.top='-9999px';
+  document.body.appendChild(ta); ta.select();
+  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta); return ok;
+}
+
+function showToast(msg){
+  let n = document.getElementById('toast');
+  if (!n){ n = document.createElement('div'); n.id='toast'; document.body.appendChild(n); }
+  n.textContent = msg; n.className='show';
+  setTimeout(()=>{ n.classList.remove('show'); }, 1600);
+}
+
+// Event listeners for copy link buttons
+document.getElementById('list')?.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('.copyLinkBtn'); if (!btn) return;
+  e.stopPropagation(); e.preventDefault();
+  const id = btn.dataset.id || appState?.activeId || '';
+  const url = buildShareUrl({ id });
+  const ok = await copyTextToClipboard(url);
+  showToast(ok ? 'Skopiowano link' : 'Nie udało się skopiować');
+});
+
+document.getElementById('copyShare')?.addEventListener('click', async ()=>{
+  const url = buildShareUrl({ id: appState?.activeId || '' });
+  const ok = await copyTextToClipboard(url);
+  showToast(ok ? 'Skopiowano link' : 'Nie udało się skopiować');
 });
 
