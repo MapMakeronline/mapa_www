@@ -603,7 +603,8 @@ async function addGeoJsonLine(map, {
   listEl?.addEventListener('click', (e)=>{
     const btn = e.target.closest('.saveBtn');
     if (!btn) return;
-    e.stopPropagation(); e.preventDefault();
+    e.preventDefault();
+    e.stopImmediatePropagation();
     const id = btn.getAttribute('data-id');
     const name = btn.getAttribute('data-name') || (btn.closest('.item')?.querySelector('.name')?.textContent?.trim() || '');
     const after = toggleSaved({id, name});
