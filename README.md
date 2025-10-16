@@ -14,18 +14,55 @@ Zaawansowana interaktywna mapa szlaków turystycznych w rejonie Wałbrzycha z fu
 ### 📤 Eksport Wieloformatowy
 - **PNG Export**: Wysokiej jakości zrzuty mapy z informacjami o trasie
 - **KML Export**: Export do Google Maps (tryb jazdy samochodem do początku szlaku)
-- **GPX Export**: Standardowy format GPS dla urządzeń nawigacyjnych
+- **GPX Export**: Standardowy format GPS dla urzą## 📜 Licencja
 
-### 🔍 Wyszukiwanie
+Projekt jest dostępny na licencji [MIT](LICENSE).
+
+## 🙏 Podziękowania
+
+- [Mapbox](https://www.mapbox.com/) za dostarczenie API map
+- [Turf.js](https://turfjs.org/) za narzędzia do analizy danych geograficznych
+- Społeczność OpenStreetMap za dane szlaków turystycznych
+
+## 📈 Historia Wersji
+
+### v2024.10 - System Filtrów Facet
+- ✨ Dodano zwijane filtry z kompaktowym interfejsem
+- 🎨 Multi-select dla kolorów szlaków
+- 💾 Zaawansowane zarządzanie stanem w localStorage
+- ♿ Pełne wsparcie ARIA dla dostępności
+- 🔄 Automatyczna migracja formatów danych
+- 📱 Ulepszona responsywność na urządzeniach mobilnych
+
+### v2024.09 - Export i Modularyzacja
+- 📤 System eksportu do PNG/KML/GPX
+- 🏗️ Modułowa architektura JavaScript
+- 🖼️ Inteligentne mapowanie zdjęć szlaków
+- 🎮 Ulepszone kontrolki odtwarzania
+
+### v2024.08 - Podstawowa Funkcjonalność
+- 🗺️ Implementacja Mapbox GL JS z animacją 3D
+- 📍 System ładowania danych GeoJSON
+- 🎬 Animowana kamera śledząca trasę
+- 📱 Responsywny design desktop/mobileigacyjnych
+
+### 🔍 Wyszukiwanie i Filtrowanie
 - Inteligentne wyszukiwanie szlaków po nazwie
-- Filtrowanie według typu i trudności
-- Wyszukiwanie miejsc i atrakcji
+- **Zaawansowane filtry facet**:
+  - Dystans: 0-3 km, 3-8 km, >8 km
+  - Kolor szlaku: multi-select (niebieski, czerwony, zielony, żółty)
+  - Tylko zapisane: szybki dostęp do ulubionych tras
+- **Zwijany interfejs**: Kompaktowy przycisk "Filtry (n)" z płynną animacją
+- Filtrowanie w czasie rzeczywistym z debounce
+- Zachowywanie stanu filtrów w localStorage
 
 ### 🎨 Interfejs Użytkownika
 - Ciemny motyw z płynną animacją
-- Sidebar z listą szlaków
+- Sidebar z listą szlaków i systemem zapisywania
+- **Zwijane filtry**: Elegancki panel z licznikiem aktywnych filtrów
 - FAB menu dla urządzeń mobilnych
 - Backdrop blur effects
+- Pełne wsparcie ARIA dla dostępności
 
 ## 🏗️ Architektura Techniczna
 
@@ -33,7 +70,7 @@ Zaawansowana interaktywna mapa szlaków turystycznych w rejonie Wałbrzycha z fu
 ```
 map_demo/
 ├── js/
-│   ├── app.js                 # Główna aplikacja
+│   ├── app.js                 # Główna aplikacja + system filtrów
 │   ├── config.*.js            # Konfiguracja (local/UI)
 │   └── lib/
 │       ├── route-export.js              # Klasa RouteExporter
@@ -41,6 +78,13 @@ map_demo/
 │       ├── map-helpers.js              # Pomocniki mapy
 │       └── trail-images.js             # Mapowanie obrazów szlaków
 ```
+
+### Nowe Funkcjonalności (v2024.10)
+- **Zwijane filtry**: Kompaktowy UI z animowanym rozwijaniem
+- **Multi-select kolory**: Wybór wielu kolorów szlaków jednocześnie
+- **System state management**: Zaawansowane zarządzanie stanem filtrów
+- **ARIA accessibility**: Pełne wsparcie dla technologii asystujących
+- **Migracja danych**: Automatyczna konwersja starych formatów localStorage
 
 ### Technologie i Biblioteki
 - **Mapbox GL JS v3.0**: Renderowanie mapy z preserveDrawingBuffer
@@ -144,7 +188,15 @@ Aby osadzić mapę w WordPress za pomocą Elementora, dodaj blok HTML i wstaw od
 - **Interaktywna mapa**: Mapbox GL JS z renderowaniem 3D terrain
 - **400+ szlaków**: Kompletna baza szlaków Wałbrzycha z OpenStreetMap
 - **Inteligentne obrazy**: Automatyczne mapowanie zdjęć szlaków na podstawie nazw
-- **Wyszukiwanie**: Zaawansowane filtrowanie szlaków, miejsc i atrakcji
+- **Zaawansowane filtry**: System facet z multi-select dla kolorów szlaków
+- **Zapisywanie tras**: System ulubionych z lokalnym przechowywaniem
+
+### 🔍 System Filtrowania
+- **Dystans tras**: Single-select (0-3 km, 3-8 km, >8 km)
+- **Kolory szlaków**: Multi-select (niebieski, czerwony, zielony, żółty)
+- **Tylko zapisane**: Szybki dostęp do ulubionych tras
+- **Zwijany interfejs**: Kompaktowy przycisk "Filtry (n)" z animacją
+- **Wyszukiwanie tekstowe**: Filtrowanie po nazwie z debounce 120ms
 
 ### 🎬 Animacja i Kamera
 - **Dynamiczne śledzenie**: Kamera podąża za trasą z automatycznym obrotem
@@ -240,16 +292,28 @@ Aplikacja działa poprawnie na większości nowoczesnych przeglądarek w ich naj
 
 ### Szybki start (60 sekund)
 1. **Otwórz mapę**: strona ładuje się automatycznie z widokiem początkowym.
-2. **Wybierz szlak** z listy po prawej stronie, aby rozpocząć animację.
-3. **Steruj odtwarzaniem**: używaj panelu kontrolnego na dole ekranu do:
+2. **Filtry**: Kliknij "Filtry" aby rozwinąć opcje filtrowania:
+   - Wybierz dystans tras (0-3 km, 3-8 km, >8 km)
+   - Wybierz kolory szlaków (można wybrać kilka naraz)
+   - Włącz "Tylko zapisane" dla ulubionych tras
+3. **Wyszukaj**: Użyj pola wyszukiwania do znalezienia konkretnej trasy
+4. **Wybierz szlak** z listy po prawej stronie, aby rozpocząć animację.
+5. **Steruj odtwarzaniem**: używaj panelu kontrolnego na dole ekranu do:
    - Pauzowania/wznawiania animacji
    - Ponownego odtworzenia animacji po jej zakończeniu (przycisk "Replay")
    - Zmiany prędkości odtwarzania
    - Przewijania postępu za pomocą suwaka
    - Pobierania danych szlaku
-4. Przycisk "Resetuj animację" pozwala powrócić do stanu początkowego
-5. Po zakończeniu animacji pasek odtwarzania pozostaje widoczny, umożliwiając ponowne odtworzenie
-6. Na urządzeniach mobilnych można schować/pokazać panel boczny za pomocą przycisku menu
+6. **Zapisz trasę**: Kliknij serduszko przy trasie aby dodać do ulubionych
+7. Po zakończeniu animacji pasek odtwarzania pozostaje widoczny, umożliwiając ponowne odtworzenie
+8. Na urządzeniach mobilnych można schować/pokazać panel boczny za pomocą przycisku menu
+
+### Filtry i wyszukiwanie
+- **Filtry zwijane**: Kliknij "Filtry (n)" aby rozwinąć/zwinąć panel filtrów
+- **Multi-select kolory**: Wybierz kilka kolorów szlaków jednocześnie
+- **Wyszukiwanie live**: Wpisuj nazwę trasy dla natychmiastowego filtrowania
+- **Zapisane trasy**: System ulubionych z przyciskiem serduszka
+- **Stan filtrów**: Automatyczne zapisywanie ustawień między sesjami
 
 ### Sterowanie i gesty
 - **Mysz/trackpad:** przewijanie = zoom · przeciąganie = przesuwanie · prawy przycisk + przeciąganie = obrót/pochylenie.
@@ -495,7 +559,7 @@ Zaleca się utworzenie specjalnego tokena produkcyjnego w Mapbox Dashboard z ogr
 **W przeglądarce (konsola GCP):**
 1. Wejdź do **Cloud Console → Cloud Storage → Buckets (Przeglądarka)**
 2. Kliknij bucket **`maps-mapmaker-production-293411-demo`** (lub nazwę Twojego bucketa)
-3. Otwórz folder **`map_demo/`** – tam znajdują się wszystkie pliki (np. `mapa.html`, `js/`, `assets/`)
+S3. Otwórz folder **`map_demo/`** – tam znajdują się wszystkie pliki (np. `mapa.html`, `js/`, `assets/`)
 
 **Z Cloud Shell (terminal):**
 ```bash
@@ -717,6 +781,8 @@ map_demo/
 
 #### `js/app.js`
 - Inicjalizacja aplikacji i mapy
+- **System filtrów facet**: Zwijane filtry z multi-select
+- **Zarządzanie stanem**: localStorage dla filtrów i ulubionych
 - Obsługa interakcji użytkownika
 - Animacja tras i obsługa kontrolek
 - Główna logika biznesowa
@@ -736,10 +802,14 @@ map_demo/
 
 #### W `app.js`
 - `initApp()` - Inicjalizacja aplikacji
+- **`mountFacetUI()`** - Tworzenie zwijanych filtrów z licznikiem
+- **`applyFacets()`** - Filtrowanie tras według dystansu, koloru, zapisanych
+- **`updateFacetCount()`** - Aktualizacja licznika aktywnych filtrów
 - `addGeoJsonLine()` - Dodawanie linii GeoJSON do mapy
 - `animateRoute()` - Animacja poruszania się po trasie
 - `initTimelineControls()` - Inicjalizacja kontrolek odtwarzania
 - `initSidebar()` - Inicjalizacja panelu bocznego z listą tras
+- **`toggleSaved()`** - System zapisywania ulubionych tras
 
 #### W `map-helpers.js`
 - `createPoint()` - Tworzenie punktów na mapie

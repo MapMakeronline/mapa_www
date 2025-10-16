@@ -596,6 +596,14 @@
       :root { --sidebar: 320px; }
       #timelineWrap{ width:62%; bottom:18px; }
     }
+    @media screen and (min-width: 1025px) {
+      #timelineWrap {
+        position: absolute !important;
+        left: 20px !important;
+        bottom: 26px !important;
+        transform: none !important;
+      }
+    }
     @media (max-width: 768px){
       :root { 
         --sidebar: 84vw;

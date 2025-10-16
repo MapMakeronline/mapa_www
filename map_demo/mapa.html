@@ -5,18 +5,31 @@
   <meta charset="utf-8">
   <title>Szlaki turystyczne w Wałbrzychu - interaktywna mapa</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Minimalne meta-nagłówki bezpieczeństwa -->
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Permissions-Policy" content="geolocation=(self)">
+  
+  <!-- CSP – pozwala na Mapbox i Turf, blokuje wszystko inne -->
+  <meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://api.mapbox.com https://unpkg.com 'unsafe-inline' 'unsafe-eval';
+  style-src  'self' 'unsafe-inline' https://api.mapbox.com https://unpkg.com;
+  img-src    'self' data: blob: https://api.mapbox.com https://*.mapbox.com;
+  connect-src 'self' https://api.mapbox.com https://events.mapbox.com;
+  worker-src 'self' blob:;
+  object-src 'none';
+  base-uri 'self';
+  ">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet" crossorigin="anonymous">
+
+  
   <link rel="stylesheet" href="./assets/css/styles.css" />
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
-  <style>
-    @media screen and (min-width: 1025px) {
-      #timelineWrap {
-        position: absolute !important;
-        left: 20px !important;
-        bottom: 26px !important;
-        transform: none !important;
-      }
-    }
-  </style>
+
+  
+
+
 </head>
 
 <body>
@@ -69,8 +82,8 @@
 </div>
 
 </div>
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
-  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js" crossorigin="anonymous"></script>
   <script src="./js/config.local.js"></script>
   <script src="./js/config.ui.js"></script>
   <script src="./js/lib/map-helpers.js"></script>
@@ -79,5 +92,6 @@
   <script src="./js/lib/route-export.js"></script>
   <script src="./js/lib/route-export-integration.js"></script>
   <script src="./js/app.js"></script>
+  
 </body>
 </html>

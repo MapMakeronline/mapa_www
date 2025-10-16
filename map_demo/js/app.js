@@ -1,3 +1,5 @@
+"use strict";
+
 // Gwarantuje, że DOM istnieje nawet gdyby skrypty były w <head>
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', initApp);
@@ -294,10 +296,6 @@ function applyFacets() {
     item.classList.toggle('hide', !show);
     if (show) visibleCount++;
   });
-
-  // Opcjonalnie: aktualizuj licznik wyników
-  const counter = document.getElementById('facetCount');
-  if (counter) counter.textContent = visibleCount;
 }
 // === KONIEC FACET FILTERS ===
 
